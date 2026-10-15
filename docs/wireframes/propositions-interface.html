@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FrigoConnect – Propositions d'interface</title>
+<style>
+  *{box-sizing:border-box;margin:0}
+  body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#f1f5f9;color:#0f172a;padding:24px}
+  h1{font-size:24px} .lead{color:#64748b;margin:6px 0 20px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+  .tabs button{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:8px 16px;font:inherit;cursor:pointer}
+  .tabs button.on{background:#0369a1;color:#fff;border-color:#0369a1}
+  .proposal{display:none} .proposal.on{display:block}
+  .note{margin:0 0 14px;color:#334155;font-size:14px} .note b{color:#0369a1}
+  .app{display:flex;border-radius:16px;overflow:hidden;box-shadow:0 20px 40px -20px rgba(15,23,42,.35);min-height:520px;background:#fff;border:1px solid #e2e8f0}
+  .side{width:210px;padding:16px;display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+  .logo{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:14px}
+  .logo i{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-style:normal;color:#fff;background:#0369a1}
+  .nav{padding:9px 12px;border-radius:10px;font-size:14px}
+  .main{flex:1;padding:24px;min-width:0}
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:10px;flex-wrap:wrap}
+  .btn{background:#0369a1;color:#fff;border-radius:10px;padding:9px 16px;font-size:14px;font-weight:600}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+  .kpi{border:1px solid #e2e8f0;border-radius:14px;padding:14px;background:#fff}
+  .kpi small{color:#64748b;font-size:12px} .kpi b{display:block;font-size:26px;margin-top:6px}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-top:1px solid #e2e8f0;font-size:14px;gap:8px}
+  .pill{background:#e0f2fe;color:#075985;border-radius:999px;padding:3px 10px;font-size:12px;white-space:nowrap}
+  .card{border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;background:#fff}
+  /* A : actuel, clair */
+  .A .side{background:#fff;border-right:1px solid #e2e8f0} .A .on{background:#0369a1;color:#fff}
+  /* B : menu sombre */
+  .B .side{background:#0b1220;color:#cbd5e1} .B .logo{color:#fff} .B .on{background:#1e3a5f;color:#fff}
+  .B .main{background:#f8fafc}
+  /* C : barre du haut */
+  .C{flex-direction:column}
+  .C .bar{display:flex;align-items:center;gap:18px;padding:12px 24px;border-bottom:1px solid #e2e8f0;background:#fff}
+  .C .bar .nav{padding:8px 12px} .C .bar .on{background:#e0f2fe;color:#075985;font-weight:600}
+  .C .main{background:#f8fafc}
+  .C .hero{background:linear-gradient(120deg,#0369a1,#0ea5e9);color:#fff;border-radius:16px;padding:22px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .C .hero .btn{background:#fff;color:#075985}
+  .grid2{display:grid;grid-template-columns:1fr 240px;gap:16px}
+  .mobile{width:300px;margin:20px auto 0;border:8px solid #0f172a;border-radius:30px;overflow:hidden;background:#fff}
+  .mobile .head{padding:14px;font-weight:700;color:#0369a1;border-bottom:1px solid #e2e8f0}
+  .mobile .body{padding:12px;display:grid;gap:10px}
+  .mobile .tabbar{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #e2e8f0;text-align:center;font-size:11px;padding:8px 0;color:#64748b}
+  @media(max-width:800px){.side{display:none}.kpis{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>FrigoConnect – Propositions d'interface</h1>
+<p class="lead">Trois directions pour l'espace connecté (exemple : tableau de bord client). Cliquez pour comparer.</p>
+<div class="tabs" id="tabs">
+  <button class="on" data-p="A">A · Clair et sobre (actuel)</button>
+  <button data-p="B">B · Menu sombre</button>
+  <button data-p="C">C · Barre du haut + bandeau</button>
+</div>
+
+<section class="proposal on" id="A">
+  <p class="note"><b>A – Clair et sobre.</b> Ce que vous avez maintenant : fond blanc, menu clair, tableau lisible. Simple, rapide à lire, très « SaaS ».</p>
+  <div class="app A">
+    <div class="side"><div class="logo"><i>❄</i>FrigoConnect</div><div class="nav on">Demandes</div><div class="nav">Nouvelle</div><div class="nav">Messages</div><div class="nav">Paiements</div></div>
+    <div class="main">
+      <div class="top"><div><small style="color:#64748b">Espace client</small><h2>Bonjour, Karim</h2></div><div class="btn">+ Nouvelle demande</div></div>
+      <div class="kpis"><div class="kpi"><small>Demandes</small><b>3</b></div><div class="kpi"><small>Devis reçus</small><b>5</b></div><div class="kpi" style="border-color:#0369a1"><small>À examiner</small><b>2</b></div><div class="kpi"><small>En cours</small><b>1</b></div></div>
+      <div class="card"><div class="row" style="border:0;font-weight:600">Mes demandes</div>
+        <div class="row"><span>Chambre froide en panne<br><small style="color:#64748b">Lyon</small></span><span class="pill">Devis reçus</span><span>1 devis</span></div>
+        <div class="row"><span>Entretien clim bureaux<br><small style="color:#64748b">Villeurbanne</small></span><span class="pill">Ouverte</span><span>0 devis</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="proposal" id="B">
+  <p class="note"><b>B – Menu sombre.</b> Menu bleu nuit qui encadre le contenu clair. Rendu « application métier », contraste fort, très reconnaissable.</p>
+  <div class="app B">
+    <div class="side"><div class="logo"><i>❄</i>FrigoConnect</div><div class="nav on">Demandes</div><div class="nav">Nouvelle</div><div class="nav">Messages</div><div class="nav">Paiements</div></div>
+    <div class="main">
+      <div class="top"><div><small style="color:#64748b">Espace client</small><h2>Bonjour, Karim</h2></div><div class="btn">+ Nouvelle demande</div></div>
+      <div class="kpis"><div class="kpi"><small>Demandes</small><b>3</b></div><div class="kpi"><small>Devis reçus</small><b>5</b></div><div class="kpi" style="border-color:#0369a1"><small>À examiner</small><b>2</b></div><div class="kpi"><small>En cours</small><b>1</b></div></div>
+      <div class="card"><div class="row" style="border:0;font-weight:600">Mes demandes</div>
+        <div class="row"><span>Chambre froide en panne<br><small style="color:#64748b">Lyon</small></span><span class="pill">Devis reçus</span><span>1 devis</span></div>
+        <div class="row"><span>Entretien clim bureaux<br><small style="color:#64748b">Villeurbanne</small></span><span class="pill">Ouverte</span><span>0 devis</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="proposal" id="C">
+  <p class="note"><b>C – Barre du haut + bandeau.</b> Pas de menu latéral : plus d'espace pour le contenu, bandeau d'accueil coloré avec l'action principale. Plus chaleureux, plus « grand public ».</p>
+  <div class="app C">
+    <div class="bar"><div class="logo" style="margin:0"><i>❄</i>FrigoConnect</div><div class="nav on">Demandes</div><div class="nav">Nouvelle</div><div class="nav">Messages</div><div class="nav">Paiements</div><div style="margin-left:auto" class="pill">K · Karim</div></div>
+    <div class="main">
+      <div class="hero"><div><h2>Bonjour Karim</h2><p style="opacity:.9;font-size:14px;margin-top:4px">2 demandes ont reçu des devis à comparer.</p></div><div class="btn">Comparer les devis</div></div>
+      <div class="grid2">
+        <div class="card"><div class="row" style="border:0;font-weight:600">Mes demandes</div>
+          <div class="row"><span>Chambre froide en panne<br><small style="color:#64748b">Lyon</small></span><span class="pill">Devis reçus</span></div>
+          <div class="row"><span>Entretien clim bureaux<br><small style="color:#64748b">Villeurbanne</small></span><span class="pill">Ouverte</span></div></div>
+        <div style="display:grid;gap:12px"><div class="kpi"><small>Devis à examiner</small><b>2</b></div><div class="kpi"><small>En cours</small><b>1</b></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<p class="note" style="margin-top:24px"><b>Version mobile</b> (identique pour les trois) : barre d'onglets en bas, cartes empilées.</p>
+<div class="mobile"><div class="head">❄ FrigoConnect</div><div class="body"><b>Bonjour, Karim</b><div class="kpi"><small>Devis à examiner</small><b>2</b></div><div class="card"><div class="row"><span>Chambre froide en panne</span><span class="pill">Devis</span></div></div></div><div class="tabbar"><span>Demandes</span><span>Nouvelle</span><span>Messages</span><span>Paiements</span></div></div>
+
+<script>
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#tabs button,.proposal').forEach(e=>e.classList.remove('on'));
+  b.classList.add('on'); document.getElementById(b.dataset.p).classList.add('on');
+});
+</script>
+</body>
+</html>

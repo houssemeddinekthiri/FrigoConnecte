@@ -1,0 +1,150 @@
+# Hôtes virtuels FrigoConnect (rendu par setup-nginx.sh : envsubst sur APP_HOST, AUTH_HOST, FILES_HOST, SSL_DIR, HTTP_PORT, HTTPS_PORT).
+# Principe : on n'expose QUE ce qui doit l'être. Le reste (console Keycloak, console MinIO, API interne) n'est joignable que par tunnel SSH.
+
+# ---------------------------------------------------------------- HTTP : redirection + défi Let's Encrypt
+server {
+  listen ${HTTP_PORT};
+  listen [::]:${HTTP_PORT};
+  server_name ${APP_HOST} ${AUTH_HOST} ${FILES_HOST};
+
+  location /.well-known/acme-challenge/ { root /var/www/certbot; }
+  location / { return 301 https://$host$request_uri; }
+}
+
+# Tout autre nom (ou l'adresse IP brute) : connexion fermée sans réponse (pas de fuite de l'application, moins de bruit de scanners)
+server {
+  listen ${HTTP_PORT} default_server;
+  listen [::]:${HTTP_PORT} default_server;
+  server_name _;
+  return 444;
+}
+server {
+  # « http2 » est une option du SOCKET : elle doit être identique sur toutes les écoutes de cette adresse, sinon Nginx avertit
+  listen ${HTTPS_PORT} ssl http2 default_server;
+  listen [::]:${HTTPS_PORT} ssl http2 default_server;
+  server_name _;
+  ssl_reject_handshake on;
+}
+
+# ---------------------------------------------------------------- Site + API publique minimale
+server {
+  listen ${HTTPS_PORT} ssl http2;
+  listen [::]:${HTTPS_PORT} ssl http2;
+  server_name ${APP_HOST};
+
+  ssl_certificate         ${SSL_DIR}/fullchain.pem;
+  ssl_certificate_key     ${SSL_DIR}/privkey.pem;
+  ssl_trusted_certificate ${SSL_DIR}/chain.pem;
+
+  include snippets/frigo-security.conf;
+  include snippets/frigo-env.conf;   # staging : noindex ; production : vide
+
+  # Webhook Stripe : appelé par Stripe, authentifié par la signature de l'événement (corps brut transmis tel quel)
+  location = /api/v1/webhooks/stripe {
+    limit_req zone=webhook burst=100 nodelay;
+    client_max_body_size 1m;
+    include snippets/frigo-proxy.conf;
+    proxy_pass http://frigo_api;
+  }
+
+  # Contrôle de santé externe (CI, supervision). Ne révèle que « ready » ou une indisponibilité.
+  location = /api/v1/health/ready {
+    access_log off;
+    limit_req zone=site burst=10 nodelay;
+    include snippets/frigo-proxy.conf;
+    proxy_pass http://frigo_api;
+  }
+
+  # Temps réel (Socket.IO) : connexions longues
+  location /socket.io/ {
+    limit_req zone=site burst=30 nodelay;
+    include snippets/frigo-proxy.conf;
+    proxy_pass http://frigo_api;
+    proxy_buffering off;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+  }
+
+  # Le reste de l'API n'est PAS publié : le site l'appelle côté serveur par le réseau Docker (via /api/proxy, jamais depuis le navigateur)
+  location /api/v1/ { return 404; }
+
+  location / {
+    limit_req zone=site burst=60 nodelay;
+    limit_conn perip 40;
+    include snippets/frigo-proxy.conf;
+    proxy_pass http://frigo_web;
+  }
+}
+
+# ---------------------------------------------------------------- Authentification (Keycloak)
+server {
+  listen ${HTTPS_PORT} ssl http2;
+  listen [::]:${HTTPS_PORT} ssl http2;
+  server_name ${AUTH_HOST};
+
+  ssl_certificate         ${SSL_DIR}/fullchain.pem;
+  ssl_certificate_key     ${SSL_DIR}/privkey.pem;
+  ssl_trusted_certificate ${SSL_DIR}/chain.pem;
+
+  add_header Strict-Transport-Security "max-age=${HSTS_MAX_AGE}" always;
+  add_header X-Content-Type-Options "nosniff" always;
+  # (Keycloak fournit lui-même X-Frame-Options et sa CSP : on ne les redéfinit pas)
+
+  # Console d'administration, métriques, santé et domaine « master » : JAMAIS publics (tunnel SSH : ssh -L 8080:127.0.0.1:8080)
+  location ~ ^/(admin|metrics|health|realms/master) { return 404; }
+
+  # Tentatives de connexion et émission de jetons : limitées contre le bourrage d'identifiants
+  location ~ ^/realms/frigoconnect/(login-actions|protocol/openid-connect/(auth|token|logout)) {
+    limit_req zone=login burst=20 nodelay;
+    include snippets/frigo-proxy.conf;
+    proxy_buffer_size 16k;
+    proxy_buffers 4 16k;
+    proxy_pass http://frigo_auth;
+  }
+
+  location ~ ^/(realms/frigoconnect|resources|js)/ {
+    limit_req zone=site burst=60 nodelay;
+    include snippets/frigo-proxy.conf;
+    proxy_buffer_size 16k;
+    proxy_buffers 4 16k;
+    proxy_pass http://frigo_auth;
+  }
+
+  location / { return 404; }
+}
+
+# ---------------------------------------------------------------- Fichiers (MinIO, URL pré-signées)
+server {
+  listen ${HTTPS_PORT} ssl http2;
+  listen [::]:${HTTPS_PORT} ssl http2;
+  server_name ${FILES_HOST};
+
+  ssl_certificate         ${SSL_DIR}/fullchain.pem;
+  ssl_certificate_key     ${SSL_DIR}/privkey.pem;
+  ssl_trusted_certificate ${SSL_DIR}/chain.pem;
+
+  add_header Strict-Transport-Security "max-age=${HSTS_MAX_AGE}" always;
+  add_header X-Content-Type-Options "nosniff" always;
+
+  client_max_body_size 30m;   # fichiers de 25 Mo maximum (limite aussi signée dans l'URL) + marge
+
+  location / {
+    limit_req zone=site burst=40 nodelay;
+    # Lecture et dépôt uniquement : pas de suppression ni d'opérations d'administration par ce nom de domaine
+    limit_except GET HEAD PUT OPTIONS { deny all; }
+
+    # Pas d'include du fragment commun : l'en-tête Host y est redéfini, et Nginx n'accepte pas deux fois le même en-tête au même niveau.
+    proxy_http_version 1.1;
+    # La signature S3 inclut l'en-tête Host : il doit arriver à MinIO EXACTEMENT comme le navigateur l'a envoyé (avec le port éventuel)
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Connection "";
+    proxy_buffering off;
+    proxy_request_buffering off;   # le fichier est transmis au fil de l'eau, sans copie temporaire sur le disque
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+    proxy_pass http://frigo_files;
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "@frigoconnect/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@frigoconnect/contracts": "*",
+    "@hookform/resolvers": "^5.0.0",
+    "@radix-ui/react-dialog": "^1.2.0",
+    "@radix-ui/react-slot": "^1.4.0",
+    "@stripe/react-stripe-js": "^7.0.0",
+    "@stripe/stripe-js": "^10.0.0",
+    "@tanstack/react-query": "^5.59.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^1.53.0",
+    "next": "^15.1.0",
+    "next-auth": "5.0.0-beta.25",
+    "next-themes": "^0.4.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.53.0",
+    "socket.io-client": "^4.8.4",
+    "tailwind-merge": "^3.7.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/leaflet": "^1.9.22",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.6.0"
+  }
+}

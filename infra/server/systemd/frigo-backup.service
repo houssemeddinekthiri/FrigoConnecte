@@ -1,0 +1,12 @@
+[Unit]
+Description=Sauvegarde FrigoConnect (bases, fichiers, configuration ; chiffrée, hors serveur)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=DEPLOY_DIR=@DEPLOY_DIR@
+ExecStart=/bin/bash @DEPLOY_DIR@/infra/server/backup.sh
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=2h

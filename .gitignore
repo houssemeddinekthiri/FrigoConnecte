@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+.next
+LOCAL-ACCESS.txt
+.env.local
+.env*.local
+*.tsbuildinfo

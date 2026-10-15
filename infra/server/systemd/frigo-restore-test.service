@@ -1,0 +1,12 @@
+[Unit]
+Description=Test de restauration FrigoConnect (base jetable, aucun contact avec la production)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=DEPLOY_DIR=@DEPLOY_DIR@
+ExecStart=/bin/bash @DEPLOY_DIR@/infra/server/restore-test.sh
+Nice=15
+IOSchedulingClass=idle
+TimeoutStartSec=1h

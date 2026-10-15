@@ -1,0 +1,10 @@
+{
+  "name": "frigoconnect",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "build:contracts": "npm run build -w @frigoconnect/contracts",
+    "build": "npm run build:contracts && npm run build -w @frigoconnect/api",
+    "test": "npm run test -w @frigoconnect/api"
+  }
+}

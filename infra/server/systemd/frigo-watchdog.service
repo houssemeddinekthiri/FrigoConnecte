@@ -1,0 +1,9 @@
+[Unit]
+Description=Surveillance minimale FrigoConnect (site, conteneurs, disque, certificat, sauvegarde)
+After=docker.service
+
+[Service]
+Type=oneshot
+Environment=DEPLOY_DIR=@DEPLOY_DIR@
+ExecStart=/bin/bash @DEPLOY_DIR@/infra/server/watchdog.sh
+TimeoutStartSec=2min

@@ -1,0 +1,10 @@
+# Configuration TEMPORAIRE (HTTP seul) : sert uniquement à obtenir les certificats la première fois.
+# Les vrais blocs HTTPS ont besoin des fichiers de certificat pour démarrer : on ne peut donc pas les installer avant.
+server {
+  listen ${HTTP_PORT} default_server;
+  listen [::]:${HTTP_PORT} default_server;
+  server_name ${APP_HOST} ${AUTH_HOST} ${FILES_HOST};
+
+  location /.well-known/acme-challenge/ { root /var/www/certbot; }
+  location / { return 200 "FrigoConnect : installation en cours\n"; add_header Content-Type text/plain; }
+}

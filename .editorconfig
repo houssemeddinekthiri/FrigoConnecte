@@ -1,0 +1,11 @@
+# Fins de ligne LF partout : les scripts s'exécutent dans des conteneurs Linux (un CRLF casse « #!/bin/sh »)
+root = true
+
+[*]
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+trim_trailing_whitespace = false
