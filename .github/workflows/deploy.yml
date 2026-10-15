@@ -58,7 +58,7 @@ jobs:
       ACTOR: ${{ github.actor }}
       OWNER: ${{ github.repository_owner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Valide les entrées
         run: |
