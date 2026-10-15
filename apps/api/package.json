@@ -23,7 +23,7 @@
     "@socket.io/redis-adapter": "^8.3.0",
     "docxtemplater": "^3.55.9",
     "helmet": "^8.0.0",
-    "jose": "^5.9.0",
+    "jose": "^6.2.12",
     "pdfkit": "^0.20.2",
     "pg": "^8.13.0",
     "pizzip": "^3.1.7",
