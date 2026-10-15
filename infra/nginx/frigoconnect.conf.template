@@ -39,6 +39,13 @@ server {
   include snippets/frigo-security.conf;
   include snippets/frigo-env.conf;   # staging : noindex ; production : vide
 
+  # Cookies de session Auth.js (jetons Keycloak, découpés en morceaux de ~4 Ko) : avec les tampons par défaut, le retour de
+  # connexion renvoie 502 « upstream sent too big header », puis les requêtes suivantes 400. Réponse (Set-Cookie) ET requête (Cookie).
+  proxy_buffer_size 32k;
+  proxy_buffers 8 32k;
+  proxy_busy_buffers_size 64k;
+  large_client_header_buffers 4 32k;
+
   # Webhook Stripe : appelé par Stripe, authentifié par la signature de l'événement (corps brut transmis tel quel)
   location = /api/v1/webhooks/stripe {
     limit_req zone=webhook burst=100 nodelay;
