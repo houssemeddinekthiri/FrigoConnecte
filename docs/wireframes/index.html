@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FrigoConnect – Wireframes</title>
+<style>
+  :root { --bg:#f1f5f9; --ink:#0f172a; --mut:#64748b; --line:#cbd5e1; --box:#e2e8f0; --acc:#0369a1; --accbg:#e0f2fe; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0b1220; --ink:#e2e8f0; --mut:#94a3b8; --line:#334155; --box:#1e293b; --acc:#38bdf8; --accbg:#082f49; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.4 system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+  header.top { padding:12px 16px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg); z-index:5; }
+  header.top b { margin-right:auto; }
+  button.tab, button.vp { border:1px solid var(--line); background:transparent; color:var(--ink); padding:8px 12px; border-radius:8px; cursor:pointer; font:inherit; }
+  button[aria-pressed="true"] { background:var(--acc); color:#fff; border-color:var(--acc); }
+  main { padding:16px; display:flex; justify-content:center; }
+  .screen { display:none; width:100%; border:2px solid var(--ink); border-radius:12px; background:var(--bg); overflow:hidden; }
+  .screen.on { display:block; }
+  body[data-vp="mobile"] .screen { max-width:390px; }
+  body[data-vp="tablet"] .screen { max-width:768px; }
+  body[data-vp="desktop"] .screen { max-width:1100px; }
+  .nav { display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line); }
+  .nav .logo { font-weight:700; margin-right:auto; }
+  .box { background:var(--box); border:1px dashed var(--line); border-radius:8px; padding:12px; color:var(--mut); }
+  .btn { display:inline-block; background:var(--acc); color:#fff; border-radius:8px; padding:10px 16px; font-weight:600; }
+  .btn.ghost { background:transparent; color:var(--acc); border:1px solid var(--acc); }
+  .sec { padding:20px 16px; }
+  .grid { display:grid; gap:12px; }
+  body[data-vp="mobile"] .g3, body[data-vp="mobile"] .g2 { grid-template-columns:1fr; }
+  body:not([data-vp="mobile"]) .g3 { grid-template-columns:repeat(3,1fr); }
+  body:not([data-vp="mobile"]) .g2 { grid-template-columns:repeat(2,1fr); }
+  body[data-vp="mobile"] .desk-only, body[data-vp="tablet"] .desk-only { display:none; }
+  body[data-vp="desktop"] .mob-only { display:none; }
+  body[data-vp="mobile"] .nav .links { display:none; }
+  .hero { background:var(--accbg); text-align:center; padding:32px 16px; }
+  .hero h1 { margin:0 0 8px; font-size:26px; }
+  .search { display:grid; gap:8px; margin-top:16px; }
+  body:not([data-vp="mobile"]) .search { grid-template-columns:1fr 1fr auto; }
+  .field { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px; text-align:left; color:var(--mut); }
+  .card { background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:12px; display:flex; gap:12px; }
+  .avatar { width:48px; height:48px; border-radius:50%; background:var(--box); flex:none; }
+  .tag { display:inline-block; font-size:12px; background:var(--accbg); color:var(--acc); border-radius:99px; padding:2px 8px; margin:2px 2px 0 0; }
+  .layout { display:grid; gap:16px; }
+  body:not([data-vp="mobile"]) .layout.side { grid-template-columns:240px 1fr; }
+  .tabbar { display:none; position:sticky; bottom:0; border-top:1px solid var(--line); background:var(--bg); }
+  body[data-vp="mobile"] .tabbar { display:flex; }
+  .tabbar span { flex:1; text-align:center; padding:12px 0; font-size:12px; color:var(--mut); }
+  .step { display:flex; gap:8px; margin-bottom:12px; }
+  .step i { font-style:normal; width:28px; height:28px; border-radius:50%; background:var(--acc); color:#fff; display:grid; place-items:center; flex:none; font-weight:700; }
+  .note { padding:8px 16px; font-size:12px; color:var(--mut); border-top:1px solid var(--line); }
+</style>
+</head>
+<body data-vp="mobile">
+<header class="top">
+  <b>FrigoConnect · wireframes</b>
+  <span>
+    <button class="tab" data-s="home" aria-pressed="true">Accueil</button>
+    <button class="tab" data-s="search" aria-pressed="false">Recherche</button>
+    <button class="tab" data-s="request" aria-pressed="false">Dépôt de demande</button>
+  </span>
+  <span>
+    <button class="vp" data-vp="mobile" aria-pressed="true">Mobile</button>
+    <button class="vp" data-vp="tablet" aria-pressed="false">Tablette</button>
+    <button class="vp" data-vp="desktop" aria-pressed="false">Desktop</button>
+  </span>
+</header>
+
+<main>
+<!-- ACCUEIL -->
+<section class="screen on" id="home">
+  <div class="nav"><span class="logo">FrigoConnect</span><span class="links desk-only">Trouver un pro · Connexion</span><span class="btn">S'inscrire</span></div>
+  <div class="hero">
+    <h1>Le bon frigoriste, au bon moment.</h1>
+    <p>Pros certifiés, devis comparables, paiement sécurisé.</p>
+    <div class="search"><div class="field">Service ▾</div><div class="field">Ville ou code postal</div><span class="btn">Rechercher</span></div>
+    <p><u>Urgence ? Déposer une demande en 2 minutes</u></p>
+  </div>
+  <div class="sec"><b>Services</b>
+    <div class="grid g3" style="margin-top:8px"><div class="box">Dépannage</div><div class="box">Maintenance</div><div class="box">Installation</div><div class="box">Audit</div><div class="box">Conformité</div><div class="box">Contrat annuel</div></div>
+  </div>
+  <div class="sec"><b>Comment ça marche</b>
+    <div class="grid g3" style="margin-top:8px"><div class="box">1. Décrivez votre besoin</div><div class="box">2. Comparez les devis</div><div class="box">3. Payez en sécurité, notez</div></div>
+  </div>
+  <div class="sec"><b>Ils nous font confiance</b><div class="box" style="margin-top:8px">Avis vérifiés · Prestataires certifiés (attestation de capacité, QualiPAC, RGE)</div></div>
+  <div class="note">Rendu serveur (SEO). Mobile : menu réduit, CTA principal toujours visible.</div>
+</section>
+
+<!-- RECHERCHE -->
+<section class="screen" id="search">
+  <div class="nav"><span class="logo">FrigoConnect</span><span class="btn ghost">Filtres</span></div>
+  <div class="sec">
+    <div class="field">Dépannage · Lyon 69001 · 30 km ▾</div>
+    <div class="layout side" style="margin-top:16px">
+      <aside class="box desk-only" style="height:fit-content">
+        <b>Filtres</b><br><br>Service<br>Domaine (froid, clim, PAC…)<br>Rayon<br>Note min ★<br>Certifications<br>☐ Urgence 24/7<br>☐ Disponible aujourd'hui
+      </aside>
+      <div class="grid">
+        <div class="mob-only box">Tri : pertinence ▾ — « Filtres » ouvre un panneau plein écran</div>
+        <div class="card"><div class="avatar"></div><div style="flex:1"><b>Froid Express Lyon</b> <span class="tag">Vérifié</span><br><small>★ 4,8 (126) · 12 km · répond en 20 min</small><br><span class="tag">Froid commercial</span><span class="tag">Cat. 1 fluides</span></div><span class="btn">Devis</span></div>
+        <div class="card"><div class="avatar"></div><div style="flex:1"><b>ThermoPlus</b> <span class="tag">Vérifié</span><br><small>★ 4,6 (84) · 18 km · répond en 1 h</small><br><span class="tag">CVC</span><span class="tag">RGE</span></div><span class="btn">Devis</span></div>
+        <div class="card"><div class="avatar"></div><div style="flex:1"><b>Clim Service 69</b><br><small>★ 4,5 (41) · 25 km</small><br><span class="tag">Climatisation</span></div><span class="btn">Devis</span></div>
+        <div class="box" style="text-align:center">Charger plus (pagination par curseur)</div>
+      </div>
+    </div>
+  </div>
+  <div class="note">URL indexable /prestataires?service=…&amp;ville=…. Bouton « Devis » → dépôt de demande pré-rempli et prestataire invité.</div>
+</section>
+
+<!-- DEPOT DEMANDE -->
+<section class="screen" id="request">
+  <div class="nav"><span class="logo">Nouvelle demande</span><span>Étape 2/3</span></div>
+  <div class="sec" style="max-width:640px;margin:auto">
+    <div class="step"><i>1</i><div><b>Besoin</b><br><small>Dépannage · Froid commercial</small></div></div>
+    <div class="step"><i>2</i><div style="flex:1"><b>Détails</b>
+      <div class="grid" style="margin-top:8px">
+        <div class="field">Titre : chambre froide qui ne descend plus…</div>
+        <div class="field" style="min-height:90px">Description</div>
+        <div class="field">Équipement (marque, modèle)</div>
+        <div class="field">Urgence : ○ Pas pressé ○ Quelques jours ○ 24 h <b>● Urgence</b></div>
+        <div class="box">＋ Ajouter des photos (max 5)</div>
+      </div></div></div>
+    <div class="step"><i>3</i><div><b>Lieu &amp; contact</b><br><small>Adresse (autocomplétion), code postal, ville</small></div></div>
+    <span class="btn" style="width:100%;text-align:center">Continuer</span>
+    <p style="font-size:12px;color:var(--mut)">Pas de compte ? Créé à l'étape suivante (email + mot de passe).</p>
+  </div>
+  <div class="note">Brouillon sauvegardé localement. Champs 16 px min (pas de zoom iOS), clavier adapté (numérique pour le code postal).</div>
+</section>
+</main>
+
+<script>
+  const $$ = (s) => [...document.querySelectorAll(s)];
+  $$('.tab').forEach((b) => b.onclick = () => {
+    $$('.tab').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    $$('.screen').forEach((s) => s.classList.toggle('on', s.id === b.dataset.s));
+  });
+  $$('.vp').forEach((b) => b.onclick = () => {
+    $$('.vp').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    document.body.dataset.vp = b.dataset.vp;
+  });
+</script>
+</body>
+</html>

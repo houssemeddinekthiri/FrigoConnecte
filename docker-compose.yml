@@ -1,0 +1,224 @@
+# FrigoConnect : pile complète (frontend, backend, postgres, redis, keycloak, minio).
+#   cp .env.example .env   (puis remplir les secrets)   ->   docker compose up -d --build
+# Seuls web, api, keycloak et la console MinIO sont publiés, et uniquement sur 127.0.0.1 : en production, Nginx (Phase 15) est
+# le SEUL point d'entrée public. PostgreSQL et Redis ne sont jamais exposés.
+name: frigoconnect
+
+x-restart: &restart
+  restart: unless-stopped
+x-logging: &logging
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }   # les journaux ne remplissent pas le disque
+
+services:
+  # ---------------------------------------------------------------- base de données
+  postgres:
+    <<: [*restart, *logging]
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-frigoconnect}
+      POSTGRES_USER: ${POSTGRES_USER:-frigo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD manquant}
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - max_connections=100
+      - -c
+      - log_min_duration_statement=500   # journalise les requêtes de plus de 500 ms
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 1g
+
+  redis:
+    <<: [*restart, *logging]
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD manquant}", "--appendonly", "yes", "--maxmemory", "200mb", "--maxmemory-policy", "noeviction"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 256m
+
+  # ---------------------------------------------------------------- authentification
+  keycloak:
+    <<: [*restart, *logging]
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD manquant}
+      # URL PUBLIQUE de Keycloak : c'est elle qui devient le champ « iss » des jetons (doit égaler KEYCLOAK_ISSUER côté API).
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}
+      # Les appels internes (API, serveur Next) peuvent utiliser http://keycloak:8080 sans changer l'« iss »
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"            # TLS terminé par Nginx
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      JAVA_OPTS_KC_HEAP: "-Xms256m -Xmx768m"
+      # Substitutions ${...} du fichier realm-frigoconnect.json (importé au premier démarrage uniquement)
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      KEYCLOAK_BACKEND_SECRET: ${KEYCLOAK_BACKEND_SECRET:?KEYCLOAK_BACKEND_SECRET manquant}
+      RESEND_API_KEY: ${RESEND_API_KEY:-unset}
+    volumes:
+      - ./infra/keycloak/realm-frigoconnect.json:/opt/keycloak/data/import/realm-frigoconnect.json:ro
+      - ./infra/keycloak/themes/frigoconnect:/opt/keycloak/themes/frigoconnect:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8080}:8080"
+    healthcheck:
+      # l'image n'a ni curl ni wget : requête HTTP minimale sur le port de gestion (9000)
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"status\": \"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    mem_limit: 1g
+
+  # ---------------------------------------------------------------- stockage de fichiers
+  minio:
+    <<: [*restart, *logging]
+    # MinIO n'est plus publié sur Docker Hub ni quay.io (vérifié) : fork communautaire maintenu « pgsty/minio » par défaut.
+    # À réévaluer (voir docs/RUN.md) : compilation depuis les sources de MinIO, ou autre stockage compatible S3 (SeaweedFS, Garage, RustFS).
+    image: ${MINIO_IMAGE:-pgsty/minio:RELEASE.2026-08-04T00-00-00Z}
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD manquant}
+      # Le navigateur envoie les fichiers DIRECTEMENT à MinIO (URL pré-signées) : origine du site autorisée
+      MINIO_API_CORS_ALLOW_ORIGIN: ${APP_URL:-http://localhost:3000}
+    volumes:
+      - miniodata:/data
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"   # API S3 (cible des URL pré-signées)
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"   # console d'administration
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 512m
+
+  # Tâche unique : crée le bucket PRIVÉ et un compte applicatif limité à ce bucket (l'API n'utilise jamais le compte root)
+  minio-init:
+    image: ${MC_IMAGE:-pgsty/mc:RELEASE.2026-09-16T00-00-00Z}
+    restart: "no"
+    depends_on:
+      minio: { condition: service_healthy }
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET:-frigoconnect}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-frigoapp}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY manquant}
+    volumes:
+      - ./infra/minio/policy.json:/policy.json:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing "local/$$S3_BUCKET"
+        mc anonymous set none "local/$$S3_BUCKET"
+        # idempotent : « create » remplace la politique existante, « user add » remplace le secret ; seul « attach » signale un doublon
+        mc admin policy create local frigo-app /policy.json
+        mc admin user add local "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY"
+        mc admin policy attach local frigo-app --user "$$S3_ACCESS_KEY" || echo "politique déjà attachée"
+        echo "stockage prêt"
+
+  # ---------------------------------------------------------------- application
+  api:
+    <<: [*restart, *logging]
+    # En local : construite ici (docker compose up --build). Sur un serveur : API_IMAGE pointe vers l'image publiée par la CI (GHCR)
+    image: ${API_IMAGE:-frigoconnect/api:local}
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      DATABASE_URL: postgres://${POSTGRES_USER:-frigo}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-frigoconnect}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      CORS_ORIGIN: ${APP_URL:-http://localhost:3000}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      # Keycloak : « iss » PUBLIC pour valider les jetons, adresse INTERNE pour récupérer les clés et appeler l'API d'administration
+      KEYCLOAK_ISSUER: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}/realms/frigoconnect
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/frigoconnect/protocol/openid-connect/certs
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: frigoconnect
+      KEYCLOAK_BACKEND_CLIENT_ID: frigoconnect-backend
+      KEYCLOAK_BACKEND_SECRET: ${KEYCLOAK_BACKEND_SECRET}
+      WS_TICKET_SECRET: ${WS_TICKET_SECRET:?WS_TICKET_SECRET manquant}
+      OTP_SECRET: ${OTP_SECRET:?OTP_SECRET manquant}
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
+      S3_BUCKET: ${S3_BUCKET:-frigoconnect}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-frigoapp}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?STRIPE_SECRET_KEY manquant}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:?STRIPE_PUBLISHABLE_KEY manquant}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET manquant}
+      DEFAULT_COMMISSION_BPS: ${DEFAULT_COMMISSION_BPS:-1000}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      DEV_FIXED_CODE: ${DEV_FIXED_CODE:-}   # test local : code de signature fixe affiché à l'écran (ignoré hors clé Stripe de test)
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+    ports:
+      - "127.0.0.1:${API_PORT:-3001}:3001"
+    mem_limit: 512m
+
+  web:
+    <<: [*restart, *logging]
+    image: ${WEB_IMAGE:-frigoconnect/web:local}
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+      args:
+        # Local uniquement (le temps réel est sur un autre port). Les images de la CI sont construites avec une valeur VIDE :
+        # le navigateur utilise alors l'origine du site (Nginx route /socket.io), donc la MÊME image sert staging et production.
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL-http://localhost:3001}
+    environment:
+      NODE_ENV: production
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET manquant}
+      AUTH_URL: ${APP_URL:-http://localhost:3000}
+      AUTH_TRUST_HOST: "true"   # derrière Nginx
+      KEYCLOAK_ISSUER: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}/realms/frigoconnect
+      KEYCLOAK_INTERNAL_ISSUER: http://keycloak:8080/realms/frigoconnect
+      KEYCLOAK_CLIENT_ID: frigoconnect-web
+      API_URL: http://api:3001
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    mem_limit: 512m
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

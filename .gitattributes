@@ -1,0 +1,8 @@
+# Fins de ligne LF forcées pour tout ce qui s'exécute dans un conteneur Linux (un CRLF casse « #!/bin/sh »)
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.sql text eol=lf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf

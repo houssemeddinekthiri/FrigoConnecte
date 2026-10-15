@@ -1,0 +1,139 @@
+{
+  "realm": "frigoconnect",
+  "displayName": "FrigoConnect",
+  "loginTheme": "frigoconnect",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "verifyEmail": true,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["fr", "en"],
+  "defaultLocale": "fr",
+
+  "passwordPolicy": "length(10) and notUsername and notEmail and passwordHistory(3)",
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+
+  "accessTokenLifespan": 600,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 604800,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+
+  "smtpServer": {
+    "host": "smtp.resend.com",
+    "port": "465",
+    "ssl": "true",
+    "auth": "true",
+    "user": "resend",
+    "password": "${RESEND_API_KEY}",
+    "from": "no-reply@${APP_DOMAIN}",
+    "fromDisplayName": "FrigoConnect"
+  },
+
+  "roles": {
+    "realm": [
+      { "name": "client", "description": "Client (particulier ou professionnel)" },
+      { "name": "provider", "description": "Prestataire CVC / froid" },
+      { "name": "super_admin", "description": "Administrateur plateforme (MFA obligatoire)" }
+    ]
+  },
+
+  "clients": [
+    {
+      "clientId": "frigoconnect-web",
+      "baseUrl": "${APP_URL}",
+      "name": "FrigoConnect Web (Next.js BFF)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["https://${APP_DOMAIN}/api/auth/callback/keycloak", "http://localhost:3000/api/auth/callback/keycloak"],
+      "webOrigins": ["https://${APP_DOMAIN}", "http://localhost:3000"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://${APP_DOMAIN}/*##http://localhost:3000/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.client.audience": "frigoconnect-api", "id.token.claim": "false", "access.token.claim": "true" }
+        }
+      ]
+    },
+    {
+      "clientId": "frigoconnect-api",
+      "name": "FrigoConnect API (audience uniquement)",
+      "enabled": true,
+      "bearerOnly": true
+    },
+    {
+      "clientId": "frigoconnect-backend",
+      "name": "FrigoConnect Backend (compte de service)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${KEYCLOAK_BACKEND_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    }
+  ],
+
+  "users": [
+    {
+      "username": "service-account-frigoconnect-backend",
+      "enabled": true,
+      "serviceAccountClientId": "frigoconnect-backend",
+      "clientRoles": { "realm-management": ["manage-users", "query-users", "view-users", "view-realm"] }
+    }
+  ],
+
+  "browserFlow": "browser-admin-mfa",
+  "authenticationFlows": [
+    {
+      "alias": "browser-admin-mfa",
+      "description": "Navigateur : OTP obligatoire pour le rôle super_admin",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "auth-cookie", "authenticatorFlow": false, "requirement": "ALTERNATIVE", "priority": 10, "userSetupAllowed": false },
+        { "authenticatorFlow": true, "flowAlias": "browser-admin-mfa forms", "requirement": "ALTERNATIVE", "priority": 20, "userSetupAllowed": false }
+      ]
+    },
+    {
+      "alias": "browser-admin-mfa forms",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "auth-username-password-form", "authenticatorFlow": false, "requirement": "REQUIRED", "priority": 10, "userSetupAllowed": false },
+        { "authenticatorFlow": true, "flowAlias": "browser-admin-mfa otp", "requirement": "CONDITIONAL", "priority": 20, "userSetupAllowed": false }
+      ]
+    },
+    {
+      "alias": "browser-admin-mfa otp",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "conditional-user-role", "authenticatorConfig": "admin-role-condition", "authenticatorFlow": false, "requirement": "REQUIRED", "priority": 10, "userSetupAllowed": false },
+        { "authenticator": "auth-otp-form", "authenticatorFlow": false, "requirement": "REQUIRED", "priority": 20, "userSetupAllowed": true }
+      ]
+    }
+  ],
+  "authenticatorConfig": [
+    { "alias": "admin-role-condition", "config": { "condUserRole": "super_admin", "negate": "false" } }
+  ]
+}

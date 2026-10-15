@@ -1,0 +1,11 @@
+# En-têtes de sécurité du site (rendu par setup-nginx.sh). `always` : présents aussi sur les erreurs.
+# Inclure au niveau « server », jamais dans une « location » (un add_header dans une location annule ceux du niveau supérieur).
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(self \"https://js.stripe.com\")" always;
+# HSTS : démarrer court (300 s) le temps de vérifier que tout fonctionne en HTTPS, puis passer à 31536000 (voir docs/SERVER.md)
+add_header Strict-Transport-Security "max-age=${HSTS_MAX_AGE}" always;
+# CSP en MODE OBSERVATION : n'empêche rien, signale les violations dans la console du navigateur. Passer en « Content-Security-Policy »
+# une fois la console propre sur les parcours principaux (connexion, dépôt de demande, paiement, messagerie, envoi de fichier).
+add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.stripe.com https://tile.openstreetmap.org; font-src 'self' data:; connect-src 'self' wss://${APP_HOST} https://${FILES_HOST} https://api.stripe.com https://api-adresse.data.gouv.fr https://m.stripe.network; frame-src https://js.stripe.com https://hooks.stripe.com https://challenges.stripe.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://${AUTH_HOST}" always;

@@ -1,0 +1,100 @@
+@import 'tailwindcss';
+
+/* Mode sombre piloté par la classe .dark (next-themes : système par défaut, bascule manuelle possible) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ===== Tokens (source unique de la charte). Couleur de marque : bleu glacier. ===== */
+:root {
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --primary: #0369a1;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #e0f2fe;
+  --accent-foreground: #075985;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #15803d;
+  --warning: #b45309;
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --ring: #0369a1;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: #0b1220;
+  --foreground: #e2e8f0;
+  --card: #111a2e;
+  --card-foreground: #e2e8f0;
+  --primary: #38bdf8;
+  --primary-foreground: #082f49;
+  --secondary: #1e293b;
+  --secondary-foreground: #e2e8f0;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #0c4a6e;
+  --accent-foreground: #bae6fd;
+  --destructive: #f87171;
+  --destructive-foreground: #450a0a;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --border: #263449;
+  --input: #334155;
+  --ring: #38bdf8;
+}
+
+/* Expose les tokens comme utilitaires Tailwind : bg-primary, text-muted-foreground, border-border... */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@layer base {
+  * { border-color: var(--border); }
+  html { -webkit-tap-highlight-color: transparent; }
+  body { overscroll-behavior-y: none; background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
+  /* Tailwind 4 : les boutons ne montrent plus le curseur main par défaut */
+  button:not(:disabled), [role='button']:not(:disabled) { cursor: pointer; }
+}
+
+/* ===== Tokens de visualisation de données (palette de référence validée : série 1 bleue, ancres neutres) ===== */
+:root {
+  --viz-series-1: #2a78d6;
+  --viz-series-1-strong: #184f95;
+  --viz-grid: #e1e0d9;
+  --viz-axis: #c3c2b7;
+  --viz-muted: #898781;
+}
+.dark {
+  --viz-series-1: #3987e5;
+  --viz-series-1-strong: #86b6ef;
+  --viz-grid: #2c2c2a;
+  --viz-axis: #383835;
+  --viz-muted: #898781;
+}

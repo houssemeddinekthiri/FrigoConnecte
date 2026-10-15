@@ -1,0 +1,112 @@
+name: Deploy
+
+# Déploie un tag d'image sur un environnement. Deux usages :
+#   1. appelé par « Release » (staging puis production) ;
+#   2. lancé À LA MAIN (Actions > Deploy > Run workflow) : sert aussi au RETOUR ARRIÈRE MANUEL vers n'importe quel tag déjà publié.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      tag:
+        type: string
+        required: true
+      image_prefix:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environnement cible
+        type: choice
+        options: [staging, production]
+        required: true
+      tag:
+        description: "Tag d'image (ex. sha-1a2b3c4d5e6f). Pour un retour arrière : le tag d'une version précédente."
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    name: Déploiement ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # L'environnement porte : les secrets SSH, les variables (hôte, dossier, URL) et, pour la production, la validation manuelle
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ vars.DEPLOY_URL }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    env:
+      # Toutes les entrées passent par des variables d'environnement : jamais d'interpolation ${{ }} dans un script shell (injection)
+      TARGET_ENV: ${{ inputs.environment }}
+      TAG: ${{ inputs.tag }}
+      IMAGE_PREFIX_INPUT: ${{ inputs.image_prefix }}
+      SSH_HOST: ${{ vars.SSH_HOST }}
+      SSH_USER: ${{ vars.SSH_USER }}
+      DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ACTOR: ${{ github.actor }}
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Valide les entrées
+        run: |
+          [[ "$TARGET_ENV" =~ ^(staging|production)$ ]] || { echo "environnement invalide"; exit 1; }
+          [[ "$TAG" =~ ^[A-Za-z0-9_.-]{1,128}$ ]] || { echo "tag invalide"; exit 1; }
+          [[ "$DEPLOY_DIR" =~ ^/[A-Za-z0-9_./-]+$ ]] || { echo "variable DEPLOY_DIR absente ou invalide pour $TARGET_ENV"; exit 1; }
+          [[ "$SSH_HOST" =~ ^[A-Za-z0-9.-]+$ && "$SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "SSH_HOST / SSH_USER absents ou invalides"; exit 1; }
+          [ -n "$SSH_PRIVATE_KEY" ] && [ -n "$SSH_KNOWN_HOSTS" ] || { echo "secrets SSH absents pour $TARGET_ENV"; exit 1; }
+          prefix="${IMAGE_PREFIX_INPUT:-ghcr.io/${OWNER,,}/frigoconnect}"
+          [[ "$prefix" =~ ^ghcr\.io/[a-z0-9._-]+/[a-z0-9._-]+$ ]] || { echo "préfixe d'image invalide"; exit 1; }
+          echo "IMAGE_PREFIX=$prefix" >> "$GITHUB_ENV"
+
+      - name: Prépare SSH (empreinte du serveur épinglée, sans confiance au premier contact)
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          {
+            echo "Host target"
+            echo "  HostName $SSH_HOST"
+            echo "  User $SSH_USER"
+            echo "  IdentityFile ~/.ssh/id_deploy"
+            echo "  IdentitiesOnly yes"
+            echo "  StrictHostKeyChecking yes"
+          } > ~/.ssh/config
+
+      - name: Envoie la configuration de CETTE version (compose + infra)
+        run: |
+          # Le .env (secrets) vit uniquement sur le serveur : il n'est jamais envoyé, jamais écrasé
+          rsync -az --delete infra/ "target:$DEPLOY_DIR/infra/"
+          rsync -az docker-compose.yml "target:$DEPLOY_DIR/docker-compose.yml"
+
+      - name: Déploie (retour arrière automatique si la nouvelle version n'est pas saine)
+        run: |
+          # Jeton éphémère du workflow, passé par l'entrée standard : rien n'est conservé sur le serveur
+          printf '%s' "$GHCR_TOKEN" | ssh target "docker login ghcr.io -u '$ACTOR' --password-stdin" >/dev/null
+          set +e
+          ssh target "IMAGE_PREFIX='$IMAGE_PREFIX' DEPLOY_DIR='$DEPLOY_DIR' bash '$DEPLOY_DIR/infra/scripts/deploy.sh' '$TAG'"
+          rc=$?
+          ssh target "docker logout ghcr.io" >/dev/null 2>&1
+          exit $rc
+
+      - name: Contrôle depuis l'extérieur (traverse Nginx et TLS)
+        if: env.DEPLOY_URL != ''
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS --max-time 10 "$DEPLOY_URL/api/v1/health/ready"; then echo; echo "✓ $DEPLOY_URL répond"; exit 0; fi
+            sleep 5
+          done
+          echo "✗ $DEPLOY_URL ne répond pas" >&2; exit 1
