@@ -123,3 +123,50 @@ Vérifier ensuite : connexion d'un compte existant, un devis signé, le téléch
 - [ ] Console Keycloak injoignable depuis Internet (`curl -I https://auth.exemple.fr/admin/` → 404)
 - [ ] Clés Stripe de **production** uniquement sur le serveur de production
 - [ ] Mises à jour automatiques actives (`systemctl status unattended-upgrades`)
+
+## 7. Variante : VPS partagé avec Tanit Sign / Travel Tanit (staging)
+Sur le VPS `169.58.21.94`, le **Nginx en conteneur de Tanit Sign** (`/opt/tanit`) occupe déjà les ports 80/443 et sert tous les sites. FrigoConnect s'y branche au lieu d'installer son propre Nginx :
+
+```
+Internet ─► Nginx Tanit Sign (TLS, filtrage, débit) ─► tanit-sign-net ─► fc-edge (relais TCP) ─► web · api · keycloak · minio
+```
+Adresses (sans achat de domaine, via sslip.io) : `https://app.169-58-21-94.sslip.io`, `auth.…`, `files.…`.
+
+**Ne PAS lancer `bootstrap.sh` ni `setup-nginx.sh` sur ce serveur** : ils interdiraient la connexion root par mot de passe (utilisée par la CI de Tanit Sign et Travel Tanit), remplaceraient le pare-feu et installeraient un second Nginx sur les ports 80/443.
+
+1. **Vérifier la place** (en root) : `free -h` ; FrigoConnect plafonne à ≈ 4 Go de RAM, à ajouter à ce qui tourne déjà. `docker network ls | grep tanit-sign-net` doit afficher le réseau.
+2. **Utilisateur de déploiement** (clé publique de `deploy_key`, voir section 0) :
+   ```bash
+   adduser --disabled-password --gecos "" deploy && usermod -aG docker deploy
+   install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+   echo "ssh-ed25519 AAAA... deploy-ci" > /home/deploy/.ssh/authorized_keys
+   chown deploy: /home/deploy/.ssh/authorized_keys && chmod 600 /home/deploy/.ssh/authorized_keys
+   apt-get install -y rsync
+   ```
+3. **Dossier, `.env` et activation de la variante** :
+   ```bash
+   git clone https://github.com/houssemeddinekthiri/FrigoConnecte.git /tmp/fc-src
+   mkdir -p /opt/frigoconnect && bash /tmp/fc-src/infra/scripts/gen-env.sh /opt/frigoconnect/.env
+   ln -s infra/server/shared-vps/docker-compose.override.yml /opt/frigoconnect/docker-compose.override.yml
+   chown -R deploy: /opt/frigoconnect && rm -rf /tmp/fc-src
+   ```
+   Dans `/opt/frigoconnect/.env`, renseigner :
+   ```
+   APP_URL=https://app.169-58-21-94.sslip.io
+   APP_DOMAIN=app.169-58-21-94.sslip.io
+   KEYCLOAK_PUBLIC_URL=https://auth.169-58-21-94.sslip.io
+   S3_PUBLIC_ENDPOINT=https://files.169-58-21-94.sslip.io
+   NEXT_PUBLIC_WS_URL=
+   # ports locaux décalés : 3001 et 9001 sont déjà pris sur ce VPS (Uptime Kuma, console MinIO Tanit Sign)
+   WEB_PORT=3100
+   API_PORT=3101
+   KEYCLOAK_PORT=8180
+   MINIO_API_PORT=9100
+   MINIO_CONSOLE_PORT=9101
+   ```
+   plus les clés Stripe **de test**, `RESEND_API_KEY` et `MAIL_FROM`. Le lien symbolique pointe dans le vide jusqu'au premier déploiement (qui envoie `infra/`) : c'est normal.
+4. **Côté Tanit Sign** (dépôt `dev4`) : pousser sur `main` les vhosts FrigoConnect de `infra/docker/nginx.conf` et l'ajout des 3 noms au certificat dans `.github/workflows/deploy-production.yml`. Sa CI recharge Nginx à chaud et étend le certificat Let's Encrypt. Tant que FrigoConnect ne tourne pas, ces 3 noms répondent 502 ; Tanit Sign et Travel Tanit ne sont pas touchés.
+5. **GitHub, environnement `staging`** (voir `docs/CICD.md`) : `SSH_HOST=169.58.21.94`, `SSH_USER=deploy`, `DEPLOY_DIR=/opt/frigoconnect`, `DEPLOY_URL=https://app.169-58-21-94.sslip.io`, secrets `SSH_PRIVATE_KEY` et `SSH_KNOWN_HOSTS` (`ssh-keyscan -t ed25519 169.58.21.94`).
+6. **Premier déploiement** : Actions > Deploy > `staging` + un tag publié (ex. `sha-8936218dc534`), puis l'administrateur (section 3, étape 3).
+
+Consoles par tunnel : `ssh -L 8180:127.0.0.1:8180 -L 9101:127.0.0.1:9101 deploy@169.58.21.94`. Les sauvegardes (section 4) restent à configurer à part.

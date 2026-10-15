@@ -1,0 +1,32 @@
+# VPS PARTAGÉ avec Tanit Sign / Travel Tanit (voir docs/SERVER.md, section 7). Activé par un lien symbolique sur le serveur :
+#   ln -s infra/server/shared-vps/docker-compose.override.yml /opt/frigoconnect/docker-compose.override.yml
+# Compose le fusionne automatiquement avec docker-compose.yml (deploy.sh compris). Sur un serveur dédié : ne PAS créer ce lien.
+#
+# Le Nginx (conteneur) de Tanit Sign est le seul proxy du VPS (ports 80/443). Il joint FrigoConnect par le relais « fc-edge »,
+# SEUL conteneur FrigoConnect branché sur le réseau partagé « tanit-sign-net ». Les services eux-mêmes n'y sont pas : sinon
+# « minio », « postgres »... deviendraient ambigus (Tanit Sign a déjà un service « minio » sur ce réseau).
+services:
+  web:
+    networks: { default: { aliases: [fc-web] } }
+  api:
+    networks: { default: { aliases: [fc-api] } }
+  keycloak:
+    networks: { default: { aliases: [fc-keycloak] } }
+  minio:
+    networks: { default: { aliases: [fc-minio] } }
+
+  fc-edge:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./infra/server/shared-vps/edge.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      default: {}
+      tanit:
+        aliases: [fc-edge]
+    mem_limit: 64m
+
+networks:
+  tanit:
+    external: true
+    name: tanit-sign-net
