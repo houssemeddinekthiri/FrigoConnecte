@@ -5,15 +5,24 @@
 # Le Nginx (conteneur) de Tanit Sign est le seul proxy du VPS (ports 80/443). Il joint FrigoConnect par le relais « fc-edge »,
 # SEUL conteneur FrigoConnect branché sur le réseau partagé « tanit-sign-net ». Les services eux-mêmes n'y sont pas : sinon
 # « minio », « postgres »... deviendraient ambigus (Tanit Sign a déjà un service « minio » sur ce réseau).
+#
+# Plafonds mémoire réduits (staging) : le VPS n'a que ≈ 2,7 Go libres à côté des deux autres projets.
+# Un conteneur qui dépasse son plafond est tué SEUL ; sans swap sur l'hôte, des plafonds trop hauts menaceraient les autres sites.
 services:
+  postgres:
+    mem_limit: 640m   # shared_buffers=256MB
+  keycloak:
+    environment:
+      JAVA_OPTS_KC_HEAP: "-Xms128m -Xmx512m"
+    mem_limit: 768m
+    networks: { default: { aliases: [fc-keycloak] } }
+  minio:
+    mem_limit: 384m
+    networks: { default: { aliases: [fc-minio] } }
   web:
     networks: { default: { aliases: [fc-web] } }
   api:
     networks: { default: { aliases: [fc-api] } }
-  keycloak:
-    networks: { default: { aliases: [fc-keycloak] } }
-  minio:
-    networks: { default: { aliases: [fc-minio] } }
 
   fc-edge:
     image: nginx:1.27-alpine

@@ -134,7 +134,11 @@ Adresses (sans achat de domaine, via sslip.io) : `https://app.178-18-253-237.ssl
 
 **Ne PAS lancer `bootstrap.sh` ni `setup-nginx.sh` sur ce serveur** : ils interdiraient la connexion root par mot de passe (utilisée par la CI de Tanit Sign et Travel Tanit), remplaceraient le pare-feu et installeraient un second Nginx sur les ports 80/443.
 
-1. **Vérifier la place** (en root) : `free -h` ; FrigoConnect plafonne à ≈ 4 Go de RAM, à ajouter à ce qui tourne déjà. `docker network ls | grep tanit-sign-net` doit afficher le réseau.
+1. **Vérifier la place** (en root) : `free -h` doit montrer au moins ≈ 2,5 Go `available` (l'override réduit les plafonds de FrigoConnect à ≈ 3 Go, usage réel ≈ 1,5 Go). `docker network ls | grep tanit-sign-net` doit afficher le réseau. **Sans swap, en créer un** (filet contre le manque de mémoire, pour les trois projets) :
+   ```bash
+   fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+   echo '/swapfile none swap sw 0 0' >> /etc/fstab
+   ```
 2. **Utilisateur de déploiement** (clé publique de `deploy_key`, voir section 0) :
    ```bash
    adduser --disabled-password --gecos "" deploy && usermod -aG docker deploy
