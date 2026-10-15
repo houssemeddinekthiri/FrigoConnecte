@@ -96,6 +96,8 @@ jobs:
   staging:
     name: Staging
     needs: images
+    # Interrupteur au niveau du dépôt : tant qu'aucun serveur n'est configuré, le déploiement est sauté (et la production avec lui)
+    if: vars.DEPLOY_ENABLED == 'true'
     permissions:
       contents: read
       packages: read

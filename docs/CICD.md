@@ -30,6 +30,8 @@ Fusion sur main ─► CI ─► images publiées (GHCR) + analyse Trivy ─► 
 | Variable | `DEPLOY_DIR` | `/opt/frigoconnect` |
 | Variable | `DEPLOY_URL` | `https://staging.exemple.fr` (optionnel : active le contrôle de santé depuis l'extérieur) |
 
+**Activation du déploiement automatique** : une fois les environnements remplis, créer la variable **de dépôt** (Settings > Secrets and variables > Actions > Variables) `DEPLOY_ENABLED` = `true`. Sans elle, « Release » s'arrête après la publication des images (staging et production apparaissent « skipped »). Le déploiement manuel (Actions > Deploy) n'en dépend pas.
+
 **Protection de `main`** (Settings > Branches) : exiger une pull request et les contrôles `Compilation et tests unitaires`, `Intégration SQL (PostGIS réel)`, `Dépendances (vulnérabilités critiques)`, `Pile Docker complète`.
 
 **Paquets** : le premier push crée les paquets `frigoconnect-api` et `frigoconnect-web` dans GHCR, liés au dépôt (étiquette `org.opencontainers.image.source`). Le déploiement s'authentifie avec le jeton éphémère du workflow : aucun jeton personnel n'est stocké.
