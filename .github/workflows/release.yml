@@ -73,7 +73,7 @@ jobs:
 
       # Analyse des images publiées : une vulnérabilité CRITIQUE avec correctif disponible bloque le déploiement
       - name: Analyse de l'image API
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.vars.outputs.prefix }}-api:${{ steps.vars.outputs.tag }}
           severity: CRITICAL
@@ -83,7 +83,7 @@ jobs:
           TRIVY_USERNAME: ${{ github.actor }}
           TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
       - name: Analyse de l'image site
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.vars.outputs.prefix }}-web:${{ steps.vars.outputs.tag }}
           severity: CRITICAL
