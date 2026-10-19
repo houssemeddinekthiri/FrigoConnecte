@@ -97,7 +97,7 @@ jobs:
         run: bash infra/scripts/gen-env.sh
       - name: Valide la configuration Compose
         run: docker compose config --quiet
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - name: Construit les images et démarre les 7 services
         run: docker compose up -d --build
       - name: Attend que tout soit sain
