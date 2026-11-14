@@ -32,8 +32,16 @@ export default async function PublicLayout({ children }: { children: React.React
       </header>
       <RegisterSW />
       {children}
-      <footer className="mt-16 border-t pb-24 pt-8 sm:pb-8 text-center text-sm text-muted-foreground">
-        © FrigoConnect · CGU · Confidentialité · Mentions légales
+      <footer className="mt-16 border-t pb-24 pt-8 text-sm text-muted-foreground sm:pb-8">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 sm:flex-row sm:justify-between">
+          <p><span className="font-semibold text-foreground">FrigoConnect</span> · Froid, climatisation, chauffage, ventilation</p>
+          <nav aria-label="Pied de page" className="flex flex-wrap justify-center gap-x-5 gap-y-2">
+            <Link href="/prestataires" className="hover:text-foreground hover:underline">Trouver un pro</Link>
+            <Link href="/client/demandes/nouvelle" className="hover:text-foreground hover:underline">Déposer une demande</Link>
+            <Link href="/inscription" className="hover:text-foreground hover:underline">Devenir prestataire</Link>
+          </nav>
+        </div>
+        <p className="mt-6 text-center text-xs">© {new Date().getFullYear()} FrigoConnect · CGU · Confidentialité · Mentions légales</p>
       </footer>
       <BottomNav space={session ? space : "/connexion"} />
     </>

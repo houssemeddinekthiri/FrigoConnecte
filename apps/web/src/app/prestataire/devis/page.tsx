@@ -1,7 +1,10 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileText, Upload } from 'lucide-react';
+import { FileText, Plus, Upload } from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
+import { ListFilters } from '@/components/list-filters';
 import type { QuoteDto } from '@frigoconnect/contracts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,7 +14,17 @@ import { api } from '@/lib/api';
 import { uploadFile } from '@/lib/upload';
 import { dateFr, eur, QUOTE_STATUS } from '@/lib/format';
 
+const FILTERS = [
+  { id: 'all', label: 'Tous', match: () => true },
+  { id: 'draft', label: 'Brouillons', match: (x: QuoteDto) => x.status === 'draft' },
+  { id: 'sent', label: 'En attente', match: (x: QuoteDto) => x.status === 'sent' },
+  { id: 'accepted', label: 'Acceptés', match: (x: QuoteDto) => x.status === 'accepted' },
+  { id: 'closed', label: 'Sans suite', match: (x: QuoteDto) => ['rejected', 'expired', 'withdrawn'].includes(x.status) },
+];
+
 export default function ProviderQuotesPage() {
+  const [tab, setTab] = useState('all');
+  const [search, setSearch] = useState('');
   const qc = useQueryClient();
   const { data, isPending, isError } = useQuery({ queryKey: ['my-quotes'], queryFn: () => api<QuoteDto[]>('quotes/mine') });
   const refresh = () => void qc.invalidateQueries({ queryKey: ['my-quotes'] });
@@ -22,16 +35,26 @@ export default function ProviderQuotesPage() {
   });
   const openPdf = async (fileId: string) => window.open((await api<{ url: string }>(`files/${fileId}/download-url`)).url, '_blank', 'noopener');
 
+  const match = FILTERS.find((f) => f.id === tab)!.match;
+  const list = data?.filter((x) => match(x) && x.number.toLowerCase().includes(search.trim().toLowerCase()));
+  // retirer un devis envoyé est définitif pour le client : on confirme (même usage que les suppressions côté client)
+  const withdraw = (x: QuoteDto) => window.confirm(x.status === 'draft' ? `Supprimer le brouillon ${x.number} ?` : `Retirer le devis ${x.number} ? Le client ne pourra plus l'accepter.`) && act.mutate({ id: x.id, action: 'withdraw' });
+
   return (
     <>
-      <h1 className="mb-6 text-2xl font-bold">Mes devis</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">Mes devis</h1>
+        <Button asChild variant="outline"><Link href="/prestataire/demandes"><Plus /> Répondre à une demande</Link></Button>
+      </div>
+      {!!data?.length && <ListFilters label="les devis" tabs={FILTERS.map((f) => ({ id: f.id, label: f.label, count: data.filter(f.match).length }))} tab={tab} onTab={setTab} q={search} onQ={setSearch} />}
       {isPending && <div className="grid gap-3">{[0, 1].map((i) => <Skeleton key={i} className="h-24" />)}</div>}
       {isError && <p role="alert" className="text-destructive">Impossible de charger vos devis.</p>}
       {data?.length === 0 && <p className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">Aucun devis. Répondez à une demande reçue pour en créer un.</p>}
+      {!!data?.length && list?.length === 0 && <p className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">Aucun devis ne correspond.</p>}
       {importPdf.isError && <p role="alert" className="mb-3 text-sm text-destructive">{importPdf.error instanceof Error ? importPdf.error.message : 'Import impossible'}</p>}
       {act.isError && <p role="alert" className="mb-3 text-sm text-destructive">Action impossible (demande clôturée ou devis expiré ?).</p>}
       <ul className="grid gap-3">
-        {data?.map((q) => (
+        {list?.map((q) => (
           <li key={q.id}>
             <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
@@ -48,7 +71,7 @@ export default function ProviderQuotesPage() {
                   </label>
                 )}
                 {q.status === 'draft' && <Button size="sm" disabled={act.isPending} onClick={() => act.mutate({ id: q.id, action: 'send' })}>Envoyer</Button>}
-                {(q.status === 'draft' || q.status === 'sent') && <Button variant="ghost" size="sm" disabled={act.isPending} onClick={() => act.mutate({ id: q.id, action: 'withdraw' })}>{q.status === 'draft' ? 'Supprimer' : 'Retirer'}</Button>}
+                {(q.status === 'draft' || q.status === 'sent') && <Button variant="ghost" size="sm" disabled={act.isPending} onClick={() => withdraw(q)}>{q.status === 'draft' ? 'Supprimer' : 'Retirer'}</Button>}
               </div>
             </Card>
           </li>

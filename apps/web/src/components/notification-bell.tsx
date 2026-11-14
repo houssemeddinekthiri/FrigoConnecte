@@ -1,7 +1,8 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell } from 'lucide-react';
+import { Bell, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 import type { NotificationDto } from '@frigoconnect/contracts';
 import { Button } from '@/components/ui/button';
@@ -30,13 +31,28 @@ export function NotificationBell() {
       <SheetContent title="Notifications" side="right">
         {data?.items.length === 0 && <p className="text-sm text-muted-foreground">Rien pour le moment.</p>}
         <ul className="grid gap-2">
-          {data?.items.map((n) => (
-            <li key={n.id} className={cn('rounded-md border p-3 text-sm', !n.readAt && 'border-primary/40 bg-accent/40')}>
-              <p className="font-medium">{n.title}</p>
-              {n.body && <p className="text-muted-foreground">{n.body}</p>}
-              <p className="mt-1 text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</p>
-            </li>
-          ))}
+          {data?.items.map((n) => {
+            // lien enregistré par l'API avec la notification ; seules les pages internes sont suivies
+            const href = typeof n.data.href === 'string' && n.data.href.startsWith('/') ? n.data.href : null;
+            const content = (
+              <>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{n.title}</span>
+                  {n.body && <span className="block text-muted-foreground">{n.body}</span>}
+                  <span className="mt-1 block text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                </span>
+                {href && <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
+              </>
+            );
+            const box = cn('flex items-center gap-2 rounded-md border p-3 text-sm', !n.readAt && 'border-primary/40 bg-accent/40');
+            return (
+              <li key={n.id}>
+                {href
+                  ? <Link href={href} onClick={() => setOpen(false)} className={cn(box, 'transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')}>{content}</Link>
+                  : <div className={box}>{content}</div>}
+              </li>
+            );
+          })}
         </ul>
       </SheetContent>
     </Sheet>

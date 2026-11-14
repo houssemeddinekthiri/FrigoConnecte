@@ -2,6 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useState } from 'react';
+import { ListFilters } from '@/components/list-filters';
 import { useRealtimeEvent } from '@/lib/realtime';
 import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -18,21 +20,36 @@ interface InboxItem {
   score: number; receivedAt: string; quote: { id: string; status: string } | null;
 }
 
+const isOpen = (r: InboxItem) => ['open', 'quoted'].includes(r.requestStatus);
+const FILTERS = [
+  { id: 'todo', label: 'À traiter', match: (r: InboxItem) => isOpen(r) && !r.quote },
+  { id: 'answered', label: 'Devis envoyé', match: (r: InboxItem) => !!r.quote },
+  { id: 'closed', label: 'Clôturées', match: (r: InboxItem) => !isOpen(r) && !r.quote },
+  { id: 'all', label: 'Toutes', match: () => true },
+];
+
 export default function ProviderRequestsPage() {
+  const [tab, setTab] = useState('todo');
+  const [q, setQ] = useState('');
   const qc = useQueryClient();
   const { data, isPending, isError } = useQuery({ queryKey: ['inbox'], queryFn: () => api<InboxItem[]>('provider/requests') });
   // une nouvelle mise en relation arrive par notification temps réel : on recharge la liste
   useRealtimeEvent('notification', () => void qc.invalidateQueries({ queryKey: ['inbox'] }));
 
+  const match = FILTERS.find((f) => f.id === tab)!.match;
+  const list = data?.filter((r) => match(r) && `${r.title} ${r.city} ${SERVICE_LABELS[r.serviceType] ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()));
+
   return (
     <>
       <h1 className="mb-6 text-2xl font-bold">Demandes reçues</h1>
+      {!!data?.length && <ListFilters label="les demandes" tabs={FILTERS.map((f) => ({ id: f.id, label: f.label, count: data.filter(f.match).length }))} tab={tab} onTab={setTab} q={q} onQ={setQ} />}
       {isPending && <div className="grid gap-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-24" />)}</div>}
       {isError && <p role="alert" className="text-destructive">Impossible de charger les demandes.</p>}
       {data?.length === 0 && <p className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">Aucune demande pour le moment. Vérifiez votre zone d&apos;intervention et vos certifications.</p>}
+      {!!data?.length && list?.length === 0 && <p className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">{tab === 'todo' && !q ? 'Vous êtes à jour : aucune demande en attente de devis.' : 'Aucune demande ne correspond.'}</p>}
       <ul className="grid gap-3">
-        {data?.map((r) => {
-          const open = ['open', 'quoted'].includes(r.requestStatus);
+        {list?.map((r) => {
+          const open = isOpen(r);
           return (
             <li key={r.requestId}>
               <Card className="flex flex-wrap items-center justify-between gap-3 p-4">

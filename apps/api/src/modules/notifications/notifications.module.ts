@@ -5,7 +5,7 @@ import { EventsHandler, IEventHandler } from '@nestjs/cqrs';
 import type { NotificationDto } from '@frigoconnect/contracts';
 import type { QueryResultRow } from 'pg';
 import { AuthUser, CurrentUser } from '../../shared/auth/auth';
-import { EmailSender } from '../../shared/email/email';
+import { EmailSender, renderEmail } from '../../shared/email/email';
 import { Database } from '../../shared/infrastructure/database/database.service';
 import { IntegrationEvent } from '../../shared/infrastructure/outbox/outbox';
 import { RealtimeGateway } from '../../shared/realtime/realtime';
@@ -73,6 +73,22 @@ const preferenceSchema = z.object({ group: z.enum(GROUPS), email: z.boolean() })
 const groupOf = (type: string) => type.split('.')[0];
 
 /**
+ * Page où agir, enregistrée avec la notification (clic dans l'appli, bouton de l'email).
+ * Côté client tout se joue sur la demande (devis, contrat, paiement) ; côté prestataire, selon la famille d'événement.
+ */
+export function hrefFor(type: string, data: Record<string, unknown>, isClient: boolean): string | undefined {
+  if (isClient) return typeof data.requestId === 'string' ? `/client/demandes/${data.requestId}` : '/client/paiements';
+  switch (groupOf(type)) {
+    case 'quote': return type === 'quote.accepted' ? '/prestataire/contrats' : '/prestataire/devis';
+    case 'payment': return type === 'payment.released' ? '/prestataire/factures' : '/prestataire/contrats';
+    case 'contract': return '/prestataire/contrats';
+    case 'provider': return type === 'provider.approved' ? '/prestataire/demandes' : '/prestataire/profil';
+    case 'certification': return '/prestataire/profil';
+    default: return undefined; // ex. avis reçu : le destinataire peut être client ou prestataire
+  }
+}
+
+/**
  * In-app (persistée + poussée en direct) + email (Resend, sauf préférence `notification_preferences.email = false`).
  * SMS (Twilio) et push (FCM) se brancheront ici, en lisant `notification_preferences`, sans toucher aux modules émetteurs.
  */
@@ -82,7 +98,7 @@ export class NotifyOnEvents implements IEventHandler<IntegrationEvent> {
   constructor(private readonly db: Database, private readonly realtime: RealtimeGateway, private readonly mail: EmailSender) {}
 
   /** Email d'une notification : n'échoue jamais l'événement (la notification in-app est déjà enregistrée). */
-  private async email(userId: string, type: string, title: string, body: string | null) {
+  private async email(userId: string, type: string, title: string, body: string | null, href?: string) {
     try {
       if (NO_EMAIL.has(type)) return;
       const [u] = await this.db.query(
@@ -91,13 +107,8 @@ export class NotifyOnEvents implements IEventHandler<IntegrationEvent> {
       );
       if (!u?.wanted || !u.email) return;
       const url = process.env.APP_URL ?? 'http://localhost:3000';
-      await this.mail.send({ to: u.email, subject: `FrigoConnect : ${title}`, text: `${title}${body ? `
-
-${body}` : ''}
-
-Ouvrir FrigoConnect : ${url}/connexion
-
-Vous recevez cet email car il concerne votre compte FrigoConnect.` });
+      // lien direct vers la page où agir ; non connecté, le site redirige vers la connexion puis y revient
+      await this.mail.send({ to: u.email, subject: `FrigoConnect : ${title}`, ...renderEmail({ title, body, cta: { label: 'Ouvrir dans FrigoConnect', url: `${url}${href ?? '/connexion'}` } }) });
     } catch (err) {
       this.log.warn(`email non envoyé (${type}) : ${(err as Error).message}`);
     }
@@ -108,7 +119,8 @@ Vous recevez cet email car il concerne votre compte FrigoConnect.` });
       if (e.type === 'matching.provider_matched') return await this.notifyMatch(e);
       for (const d of draftsFor(e)) {
         // idempotent (outbox au moins une fois) : index unique partiel sur la clé de déduplication
-        const data = { ...d.data, dedupeKey: d.data.dedupeKey ?? `${e.type}:${String(d.data.quoteId)}` };
+        const href = hrefFor(d.type, d.data, d.userId === (e.payload as { clientId?: string }).clientId);
+        const data = { ...d.data, ...(href && { href }), dedupeKey: d.data.dedupeKey ?? `${e.type}:${String(d.data.quoteId)}` };
         const [row] = await this.db.query(
           `INSERT INTO notifications (user_id, type, title, body, data) VALUES ($1,$2,$3,$4,$5)
            ON CONFLICT (user_id, type, (data->>'dedupeKey')) WHERE (data->>'dedupeKey') IS NOT NULL DO NOTHING RETURNING *`,
@@ -116,7 +128,7 @@ Vous recevez cet email car il concerne votre compte FrigoConnect.` });
         );
         if (row) {
           this.realtime.emitToUser(d.userId, 'notification', toDto(row));
-          void this.email(d.userId, d.type, d.title, d.body);
+          void this.email(d.userId, d.type, d.title, d.body, href);
         }
       }
     } catch (err) {
@@ -129,7 +141,7 @@ Vous recevez cet email car il concerne votre compte FrigoConnect.` });
     const [row] = await this.db.query(
       `INSERT INTO notifications (user_id, type, title, body, data)
        SELECT $1, 'request.matched', 'Nouvelle demande près de chez vous', r.title,
-              jsonb_build_object('requestId', r.id::text, 'score', $3::numeric, 'urgency', r.urgency)
+              jsonb_build_object('requestId', r.id::text, 'href', '/prestataire/demandes', 'score', $3::numeric, 'urgency', r.urgency)
          FROM service_requests r WHERE r.id = $2
        ON CONFLICT (user_id, type, (data->>'requestId')) WHERE type = 'request.matched' DO NOTHING
        RETURNING *`,
@@ -137,7 +149,7 @@ Vous recevez cet email car il concerne votre compte FrigoConnect.` });
     );
     if (row) { // doublon rejoué : rien n'est renvoyé
       this.realtime.emitToUser(providerId, 'notification', toDto(row));
-      if (['high', 'emergency'].includes(row.data?.urgency)) void this.email(providerId, 'request.matched', row.title, row.body);
+      if (['high', 'emergency'].includes(row.data?.urgency)) void this.email(providerId, 'request.matched', row.title, row.body, '/prestataire/demandes');
     }
   }
 }

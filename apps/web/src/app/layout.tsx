@@ -1,10 +1,17 @@
 import type { Metadata, Viewport } from 'next';
 import { Providers } from '@/components/providers';
+import { SITE_URL } from '@/lib/site';
 import './globals.css';
 
+const description = 'Trouvez un frigoriste, chauffagiste ou technicien CVC qualifié près de chez vous.';
+
 export const metadata: Metadata = {
-  title: { default: 'FrigoConnect', template: '%s | FrigoConnect' },
-  description: 'Trouvez un frigoriste, chauffagiste ou technicien CVC qualifié près de chez vous.',
+  metadataBase: new URL(SITE_URL),
+  title: { default: 'FrigoConnect : frigoristes, chauffagistes et techniciens CVC', template: '%s | FrigoConnect' },
+  description,
+  // aperçu lors d'un partage (WhatsApp, LinkedIn, SMS) ; chaque page peut le préciser
+  openGraph: { type: 'website', siteName: 'FrigoConnect', locale: 'fr_FR', title: 'FrigoConnect', description },
+  twitter: { card: 'summary' },
   applicationName: 'FrigoConnect',
   appleWebApp: { capable: true, title: 'FrigoConnect', statusBarStyle: 'default' },
 };
