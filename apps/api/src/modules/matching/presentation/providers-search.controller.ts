@@ -1,7 +1,8 @@
-import { Controller, Get, Inject, Query } from '@nestjs/common';
+import { Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { providersMapSchema, searchProvidersSchema, type ProvidersMapInput, type SearchProvidersInput } from '@frigoconnect/contracts';
 import { AuthUser, CurrentUser, Public, Roles } from '../../../shared/auth/auth';
+import { InvalidStateError } from '../../../shared/kernel/errors';
 import { ZodValidationPipe } from '../../../shared/presentation/zod-validation.pipe';
 import { ProviderInboxQuery, SearchProvidersQuery } from '../application/handlers';
 import { MATCHING_REPOSITORY, type MatchingRepository } from '../domain/ports';
@@ -27,12 +28,20 @@ export class ProvidersSearchController {
 
 @Controller('provider')
 export class ProviderInboxController {
-  constructor(private readonly queries: QueryBus) {}
+  constructor(private readonly queries: QueryBus, @Inject(MATCHING_REPOSITORY) private readonly repo: MatchingRepository) {}
 
   /** Demandes proposées au prestataire connecté (résultat du matching). */
   @Roles('provider')
   @Get('requests')
   inbox(@CurrentUser() user: AuthUser) {
     return this.queries.execute(new ProviderInboxQuery(user.id));
+  }
+
+  /** « Pas intéressé » : la demande quitte la liste du prestataire (le client n'est pas prévenu, il voit seulement les pros restants). */
+  @Roles('provider')
+  @Post('requests/:id/decline')
+  @HttpCode(204)
+  async decline(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    if (!(await this.repo.decline(user.id, id))) throw new InvalidStateError('Cette demande ne peut plus être déclinée (devis déjà envoyé ?)');
   }
 }

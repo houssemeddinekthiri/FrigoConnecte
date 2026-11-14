@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Inject, Injectable, Logger, Module, On
 import { CommandBus, CommandHandler, ICommandHandler, IQueryHandler, QueryBus, QueryHandler } from '@nestjs/cqrs';
 import type { QueryResultRow } from 'pg';
 import type { ContractDocumentDto, ContractDto, PaymentStatus } from '@frigoconnect/contracts';
-import { addContractDocumentSchema, listContractsSchema, openDisputeSchema } from '@frigoconnect/contracts';
+import { addContractDocumentSchema, listContractsSchema, openDisputeSchema, scheduleInterventionSchema } from '@frigoconnect/contracts';
 import { z } from 'zod';
 import { AuthUser, CurrentUser, Roles } from '../../shared/auth/auth';
 import { Database } from '../../shared/infrastructure/database/database.service';
@@ -66,6 +66,18 @@ export class ContractsRepo {
     });
   }
 
+  /** Rendez-vous fixé ou déplacé par le prestataire : le client est prévenu à chaque changement. */
+  async schedule(id: string, providerId: string, scheduledAt: string) {
+    await this.db.tx(async (c) => {
+      const { rows } = await c.query(
+        `UPDATE contracts SET scheduled_at = $3 WHERE id = $1 AND provider_id = $2 AND status = 'active' AND work_done_at IS NULL RETURNING client_id, request_id`,
+        [id, providerId, scheduledAt],
+      );
+      if (!rows.length) throw new InvalidStateError('Ce contrat ne peut plus être planifié');
+      await writeOutbox(c, 'contract', id, [{ type: 'contract.scheduled', payload: { contractId: id, clientId: rows[0].client_id, providerId, requestId: rows[0].request_id, scheduledAt } }]);
+    });
+  }
+
   async dispute(id: string, reason: string) {
     await this.db.tx(async (c) => {
       const { rows } = await c.query(`UPDATE contracts SET status = 'disputed' WHERE id = $1 AND status = 'active' RETURNING client_id, provider_id`, [id]);
@@ -103,7 +115,7 @@ export class ContractsRepo {
 
   async list(userId: string, party: Party, requestId?: string): Promise<ContractDto[]> {
     const rows = await this.db.query(
-      `SELECT ${ContractsRepo.STATE.replaceAll('$PAID', '$3')}, c.quote_id, c.subtotal_cents, c.auto_validate_at, c.client_validated_at, r.title,
+      `SELECT ${ContractsRepo.STATE.replaceAll('$PAID', '$3')}, c.quote_id, c.subtotal_cents, c.auto_validate_at, c.client_validated_at, c.scheduled_at, r.title,
               EXISTS (SELECT 1 FROM reviews rv WHERE rv.contract_id = c.id AND rv.author_id = $1) AS reviewed,
               CASE WHEN c.client_id = $1 THEN pr.company_name ELSE u.first_name || ' ' || left(u.last_name, 1) || '.' END AS counterpart
          FROM contracts c
@@ -121,7 +133,7 @@ export class ContractsRepo {
       return {
         id: r.id, requestId: r.request_id, quoteId: r.quote_id, requestTitle: r.title, counterpartName: r.counterpart, status: r.status,
         totalCents: r.total_cents, depositCents: r.deposit_cents, balanceCents: balanceCents(s),
-        workDoneAt: r.work_done_at?.toISOString() ?? null, autoValidateAt: r.auto_validate_at?.toISOString() ?? null, clientValidatedAt: r.client_validated_at?.toISOString() ?? null,
+        workDoneAt: r.work_done_at?.toISOString() ?? null, autoValidateAt: r.auto_validate_at?.toISOString() ?? null, clientValidatedAt: r.client_validated_at?.toISOString() ?? null, scheduledAt: r.scheduled_at?.toISOString() ?? null,
         payments: pays.filter((p) => p.contract_id === r.id).map((p) => ({
           id: p.id, kind: p.kind, status: p.status as PaymentStatus, amountCents: p.amount_cents,
           // la ventilation commission / net n'est montrée qu'au prestataire
@@ -243,6 +255,16 @@ class ContractsController {
   @HttpCode(204)
   async workDone(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     await this.commands.execute(new DeclareWorkDoneCommand(user, id));
+  }
+
+  @Post(':id/schedule')
+  @Roles('provider')
+  @HttpCode(204)
+  async schedule(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(scheduleInterventionSchema)) body: z.output<typeof scheduleInterventionSchema>) {
+    const c = await this.repo.state(id);
+    if (!c || c.providerId !== user.id) throw new NotFoundError('Contrat');
+    if (!actionsFor(c, 'provider').schedule) throw new InvalidStateError("Le rendez-vous se fixe une fois l'acompte réglé, avant la fin de l'intervention");
+    await this.repo.schedule(id, user.id, body.scheduledAt);
   }
 
   @Post(':id/dispute')

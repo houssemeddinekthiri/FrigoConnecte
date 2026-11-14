@@ -7,6 +7,7 @@ const NAV: NavItem[] = [
   { href: '/prestataire/contrats', label: 'Contrats', icon: 'contracts' },
   { href: '/prestataire/factures', label: 'Factures', icon: 'documents' },
   { href: '/prestataire/messagerie', label: 'Messages', icon: 'messages' },
+  { href: '/prestataire/avis', label: 'Avis', icon: 'moderation' },
   { href: '/prestataire/profil', label: 'Mon profil', icon: 'profile' },
 ];
 

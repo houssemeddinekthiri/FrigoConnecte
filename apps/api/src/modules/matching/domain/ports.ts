@@ -39,6 +39,8 @@ export interface InboxItem {
 export interface MatchingRepository {
   /** Demandes proposées à ce prestataire, récentes d'abord. */
   inbox(providerId: string): Promise<InboxItem[]>;
+  /** Le prestataire écarte une demande de sa liste. Faux si elle n'y est pas, ou s'il y a déjà répondu par un devis. */
+  decline(providerId: string, requestId: string): Promise<boolean>;
   getRequest(id: string): Promise<RequestForMatching | null>;
   /** Prestataires approuvés, actifs, dont le rayon couvre `location`, filtrés par service/métier. Triés par distance. */
   findCandidates(location: { lat: number; lng: number }, filter: { serviceType?: ServiceType; trade?: Trade }, at: Date, limit: number): Promise<ProviderCandidate[]>;

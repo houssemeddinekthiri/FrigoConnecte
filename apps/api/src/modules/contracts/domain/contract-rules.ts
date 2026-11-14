@@ -48,6 +48,8 @@ export function actionsFor(c: ContractState, party: Party) {
     validate: party === 'client' && active && !!c.workDoneAt && balanceSettled(c),
     // litige : dès qu'il y a de l'argent ou du travail en jeu (sinon, on annule simplement)
     dispute: active && (c.depositPaid || !!c.workDoneAt),
+    // rendez-vous : fixé (ou déplacé) par le prestataire une fois l'acompte réglé, tant que l'intervention n'est pas déclarée terminée
+    schedule: party === 'provider' && active && !c.workDoneAt && depositSettled(c),
   };
 }
 

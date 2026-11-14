@@ -30,6 +30,17 @@ export class PgMatchingRepository implements MatchingRepository {
     }));
   }
 
+  async decline(providerId: string, requestId: string): Promise<boolean> {
+    const rows = await this.db.query(
+      `UPDATE request_matches m SET declined_at = now()
+        WHERE m.provider_id = $1 AND m.request_id = $2 AND m.declined_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM quotes q WHERE q.request_id = m.request_id AND q.provider_id = m.provider_id AND q.status <> 'withdrawn')
+        RETURNING m.request_id`,
+      [providerId, requestId],
+    );
+    return rows.length > 0;
+  }
+
   async getRequest(id: string): Promise<RequestForMatching | null> {
     const [r] = await this.db.query(
       `SELECT id, status, service_type, trade, urgency, desired_from,

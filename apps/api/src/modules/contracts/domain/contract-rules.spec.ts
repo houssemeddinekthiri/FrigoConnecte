@@ -34,15 +34,18 @@ describe('contract rules', () => {
 
   it('actions proposées à chaque partie, de la signature à la validation', () => {
     expect(actionsFor(base, 'client')).toMatchObject({ payDeposit: true, payBalance: false, declareDone: false, validate: false });
-    expect(actionsFor(base, 'provider')).toEqual({ payDeposit: false, payBalance: false, declareDone: false, validate: false, dispute: false });
+    expect(actionsFor(base, 'provider')).toEqual({ payDeposit: false, payBalance: false, declareDone: false, validate: false, dispute: false, schedule: false });
 
     const funded = { ...base, depositPaid: true };
     expect(actionsFor(funded, 'provider').declareDone).toBe(true);
+    // rendez-vous : au prestataire seulement, une fois l'acompte réglé
+    expect(actionsFor(funded, 'provider').schedule).toBe(true);
+    expect(actionsFor(funded, 'client').schedule).toBe(false);
     expect(actionsFor(funded, 'client').payDeposit).toBe(false);
 
     const finished = { ...funded, workDoneAt: done };
-    expect(actionsFor(finished, 'client')).toEqual({ payDeposit: false, payBalance: true, declareDone: false, validate: false, dispute: true });
-    expect(actionsFor({ ...finished, balancePaid: true }, 'client')).toEqual({ payDeposit: false, payBalance: false, declareDone: false, validate: true, dispute: true });
-    expect(actionsFor({ ...finished, status: 'disputed' }, 'client')).toEqual({ payDeposit: false, payBalance: false, declareDone: false, validate: false, dispute: false });
+    expect(actionsFor(finished, 'client')).toEqual({ payDeposit: false, payBalance: true, declareDone: false, validate: false, dispute: true, schedule: false });
+    expect(actionsFor({ ...finished, balancePaid: true }, 'client')).toEqual({ payDeposit: false, payBalance: false, declareDone: false, validate: true, dispute: true, schedule: false });
+    expect(actionsFor({ ...finished, status: 'disputed' }, 'client')).toEqual({ payDeposit: false, payBalance: false, declareDone: false, validate: false, dispute: false, schedule: false });
   });
 });

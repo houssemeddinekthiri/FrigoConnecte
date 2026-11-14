@@ -36,6 +36,10 @@ function draftsFor(e: IntegrationEvent): Draft[] {
     case 'contract.work_done':
       return [{ userId: p.clientId, type: 'contract.work_done', title: 'Intervention terminée', body: `Réglez le solde puis validez. Sans réponse, validation automatique sous ${p.autoValidateDays} jours.`,
         data: { contractId: p.contractId, dedupeKey: `contract.work_done:${p.contractId}` } }];
+    case 'contract.scheduled':
+      return [{ userId: p.clientId, type: 'contract.scheduled', title: 'Intervention planifiée',
+        body: `Votre prestataire interviendra le ${new Date(p.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short', timeZone: 'Europe/Paris' })}.`,
+        data: { contractId: p.contractId, requestId: p.requestId, dedupeKey: `contract.scheduled:${p.contractId}:${p.scheduledAt}` } }];
     case 'payment.released':
       return [{ userId: p.providerId, type: 'payment.released', title: 'Virement en route', body: `${eur(p.amountCents)} versés sur votre compte`, data: { dedupeKey: `payment.released:${p.paymentId}` } }];
     case 'payment.refunded':

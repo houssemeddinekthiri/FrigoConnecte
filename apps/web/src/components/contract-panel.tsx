@@ -6,6 +6,7 @@ import { useRef, useState } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/form-controls';
 import type { ContractDocumentDto, ContractDto, PaymentStatus } from '@frigoconnect/contracts';
+import { Appointment } from '@/components/appointment';
 import { PaymentSheet } from '@/components/payment-sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -60,6 +61,8 @@ export function ContractPanel({ contract, role }: { contract: ContractDto; role:
         ))}
         {contract.payments.length === 0 && <li className="text-muted-foreground">Aucun paiement pour l&apos;instant (acompte {eur(contract.depositCents)}, solde {eur(contract.balanceCents)}).</li>}
       </ul>
+
+      <Appointment contract={contract} role={role} onChange={refresh} />
 
       {contract.workDoneAt && contract.status === 'active' && (
         <p className="text-sm text-muted-foreground">Intervention déclarée terminée le {dateFr(contract.workDoneAt)}{contract.autoValidateAt && ` · validation automatique le ${dateFr(contract.autoValidateAt)}`}.</p>

@@ -33,9 +33,11 @@ export interface ContractDto {
   workDoneAt: string | null;
   autoValidateAt: string | null;
   clientValidatedAt: string | null;
+  /** Rendez-vous d'intervention fixé par le prestataire (null tant qu'il n'est pas planifié). */
+  scheduledAt: string | null;
   payments: { id: string; kind: 'deposit' | 'balance'; status: PaymentStatus; amountCents: number; providerCents: number | null; feeCents: number | null }[];
   /** Ce que l'utilisateur connecté peut faire maintenant (calculé côté serveur : l'UI n'a aucune règle à recopier). */
-  actions: { payDeposit: boolean; payBalance: boolean; declareDone: boolean; validate: boolean; review: boolean; dispute: boolean };
+  actions: { payDeposit: boolean; payBalance: boolean; declareDone: boolean; validate: boolean; review: boolean; dispute: boolean; schedule: boolean };
 }
 
 export interface ConnectStatus {
@@ -46,4 +48,9 @@ export interface ConnectStatus {
 export const CONTRACT_DOC_KINDS = ['contract', 'invoice'] as const;
 export const addContractDocumentSchema = z.object({ fileId: z.string().uuid(), kind: z.enum(CONTRACT_DOC_KINDS) });
 export interface ContractDocumentDto { id: string; fileId: string; kind: (typeof CONTRACT_DOC_KINDS)[number]; name: string; mine: boolean; createdAt: string }
+/** Rendez-vous d'intervention : une date et heure à venir (ISO 8601). */
+export const scheduleInterventionSchema = z.object({
+  scheduledAt: z.string().datetime({ offset: true }).refine((v) => new Date(v).getTime() > Date.now(), 'Choisissez une date à venir'),
+});
+
 export const openDisputeSchema = z.object({ reason: z.string().trim().min(10, 'Décrivez le problème en quelques mots').max(1000) });

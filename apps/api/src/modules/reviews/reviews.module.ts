@@ -1,6 +1,6 @@
-import { Body, Controller, HttpCode, Injectable, Module, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Injectable, Module, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import type { PoolClient } from 'pg';
-import { createReviewSchema } from '@frigoconnect/contracts';
+import { createReviewSchema, type ReceivedReviewDto } from '@frigoconnect/contracts';
 import type { z } from 'zod';
 import { AuthUser, CurrentUser, Permissions, Roles } from '../../shared/auth/auth';
 import { Database } from '../../shared/infrastructure/database/database.service';
@@ -64,6 +64,27 @@ class ReviewsController {
   @Permissions('review:create')
   create(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(createReviewSchema)) body: z.output<typeof createReviewSchema>) {
     return this.repo.create(user, id, body.rating, body.comment);
+  }
+
+  /** Avis publiés reçus par le prestataire connecté, récents d'abord, pour y répondre. */
+  @Get('reviews/received')
+  @Roles('provider')
+  async received(@CurrentUser() user: AuthUser): Promise<ReceivedReviewDto[]> {
+    const rows = await this.db.query(
+      `SELECT r.id, r.rating, r.comment, r.response, r.response_at, r.created_at, sr.title,
+              u.first_name || ' ' || left(u.last_name, 1) || '.' AS author
+         FROM reviews r
+         JOIN users u ON u.id = r.author_id
+         JOIN contracts c ON c.id = r.contract_id
+         JOIN service_requests sr ON sr.id = c.request_id
+        WHERE r.target_id = $1 AND r.status = 'published'
+        ORDER BY r.created_at DESC LIMIT 100`,
+      [user.id],
+    );
+    return rows.map((r) => ({
+      id: r.id, rating: r.rating, comment: r.comment, response: r.response, responseAt: r.response_at?.toISOString() ?? null,
+      createdAt: r.created_at.toISOString(), author: r.author, requestTitle: r.title,
+    }));
   }
 
   @Post('reviews/:id/response')

@@ -50,6 +50,18 @@ export interface ConversationSummary {
   lastMessageAt: string | null;
 }
 
+/** Avis reçu par un prestataire, avec sa réponse éventuelle. */
+export interface ReceivedReviewDto {
+  id: string;
+  rating: number;
+  comment: string | null;
+  response: string | null;
+  responseAt: string | null;
+  createdAt: string;
+  author: string;
+  requestTitle: string;
+}
+
 export interface NotificationDto {
   id: string;
   type: string;
