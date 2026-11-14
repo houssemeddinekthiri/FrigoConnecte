@@ -1,4 +1,4 @@
-import type { ServiceType, Trade, Urgency } from '@frigoconnect/contracts';
+import type { ProviderMapPoint, ServiceType, Trade, Urgency } from '@frigoconnect/contracts';
 import { Candidate, Scored } from './scoring';
 
 export interface ProviderCandidate extends Candidate {
@@ -42,6 +42,8 @@ export interface MatchingRepository {
   getRequest(id: string): Promise<RequestForMatching | null>;
   /** Prestataires approuvés, actifs, dont le rayon couvre `location`, filtrés par service/métier. Triés par distance. */
   findCandidates(location: { lat: number; lng: number }, filter: { serviceType?: ServiceType; trade?: Trade }, at: Date, limit: number): Promise<ProviderCandidate[]>;
+  /** Carte publique : tous les prestataires approuvés et actifs, où qu'ils soient (position arrondie). */
+  mapPoints(serviceType: ServiceType | undefined, at: Date): Promise<ProviderMapPoint[]>;
   /** Idempotent (rejouable) : n'émet l'événement `matching.provider_matched` que pour les nouvelles lignes. */
   saveMatches(requestId: string, matches: Scored<ProviderCandidate>[]): Promise<void>;
   /** « Re-solliciter » : le prestataire choisi par le client reçoit la demande même hors des 10 meilleurs (s'il est approuvé). */

@@ -12,11 +12,11 @@ export interface MapMatch {
 const km = (d: number) => (d < 1 ? '< 1 km' : `${d} km`);
 
 /** Bulle du repère, construite en DOM (textContent) : les textes viennent du prestataire, jamais injectés en HTML. */
-function popup(m: MapMatch) {
+export function popup(m: Omit<MapMatch, 'distanceKm'> & { distanceKm?: number }) {
   const line = (text: string, className: string) => Object.assign(document.createElement('div'), { textContent: text, className });
   const box = document.createElement('div');
   box.className = 'grid gap-1 text-sm';
-  box.append(line(m.companyName, 'font-semibold'), line([m.city, km(m.distanceKm)].filter(Boolean).join(' · '), 'text-[#5F5E5A]')); // couleurs fixes : la bulle Leaflet reste blanche en thème sombre
+  box.append(line(m.companyName, 'font-semibold'), line([m.city, m.distanceKm === undefined ? null : km(m.distanceKm)].filter(Boolean).join(' · '), 'text-[#5F5E5A]')); // couleurs fixes : la bulle Leaflet reste blanche en thème sombre
   if (m.reviewsCount) box.append(line(`★ ${m.avgRating?.toFixed(1)} (${m.reviewsCount} avis)`, ''));
   if (m.availableNow) box.append(line('● Disponible maintenant', 'font-medium text-[#0F6E56]'));
   if (m.slug) box.append(Object.assign(document.createElement('a'), { href: `/prestataires/${m.slug}`, textContent: 'Voir le profil', className: 'font-medium underline' }));

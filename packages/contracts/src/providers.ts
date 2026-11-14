@@ -43,6 +43,23 @@ export interface ProviderSearchResult {
   logoFileId: string | null;
 }
 
+/** Carte de tous les prestataires : filtre facultatif par service. */
+export const providersMapSchema = z.object({ service: z.enum(SERVICE_TYPES).optional() });
+export type ProvidersMapInput = z.output<typeof providersMapSchema>;
+
+/** Un repère de la carte publique. Position arrondie (~1 km) : jamais l'adresse exacte. */
+export interface ProviderMapPoint {
+  slug: string;
+  companyName: string;
+  city: string | null;
+  lat: number;
+  lng: number;
+  avgRating: number;
+  reviewsCount: number;
+  emergencyAvailable: boolean;
+  availableNow: boolean;
+}
+
 /** Vitrine : logo (image envoyée par le prestataire ; null = le retirer), photos de réalisations, disponibilité immédiate. */
 export const providerLogoSchema = z.object({ fileId: z.string().uuid().nullable() });
 export const providerPhotoSchema = z.object({ fileId: z.string().uuid() });

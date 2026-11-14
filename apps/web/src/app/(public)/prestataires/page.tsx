@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { Clock, MapPin, Star } from 'lucide-react';
 import Link from 'next/link';
-import { SERVICE_TYPES, type ProviderSearchResult } from '@frigoconnect/contracts';
+import { SERVICE_TYPES, type ProviderMapPoint, type ProviderSearchResult } from '@frigoconnect/contracts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input, Select } from '@/components/ui/form-controls';
 import { MatchesMap } from '@/components/matches-map';
+import { ProvidersMap } from '@/components/providers-map';
 import { ProviderAvatar } from '@/components/provider-bits';
 import { duration, SERVICE_LABELS } from '@/lib/format';
 import { LocateButton } from './locate-button';
@@ -34,12 +35,23 @@ async function search(service: string | undefined, ville: string, f: { sort?: 'r
   return { place, results: res.ok ? ((await res.json()) as ProviderSearchResult[]) : null };
 }
 
+/** Tous les prestataires approuvés (carte générale). En cas de panne de l'API, la page reste utilisable sans carte. */
+async function allProviders(service: string | undefined) {
+  try {
+    const res = await fetch(`${process.env.API_URL}/api/v1/providers/map${service ? `?service=${service}` : ''}`, { next: { revalidate: 60 } });
+    return res.ok ? ((await res.json()) as ProviderMapPoint[]) : null;
+  } catch { return null; }
+}
+
 // Rendu serveur : indexable par Google (/prestataires?service=…&ville=…)
 export default async function SearchPage({ searchParams }: { searchParams: Promise<Search> }) {
   const { service, ville, tri, urgences, dispo } = await searchParams;
   const filters = { sort: tri && tri in SORTS ? SORTS[tri as keyof typeof SORTS] : undefined, emergency: urgences === '1', availableNow: dispo === '1' };
   const found = ville ? await search(service && service in SERVICE_LABELS ? service : undefined, ville, filters) : null;
   const filtered = filters.emergency || filters.availableNow;
+  // carte générale : sans recherche, ou quand personne ne couvre la ville cherchée (on montre alors les plus proches)
+  const showAll = !found || (!!found.place && found.results?.length === 0);
+  const all = showAll ? await allProviders(service && service in SERVICE_LABELS ? service : undefined) : null;
 
   const requestHref = `/client/demandes/nouvelle${service && service in SERVICE_LABELS ? `?service=${service}` : ''}`;
 
@@ -70,7 +82,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       <LocateButton keep={{ service, tri, urgences, dispo }} />
       </Card>
 
-      {!found && <p className="mt-8 text-muted-foreground">Indiquez une ville ou un code postal pour voir les prestataires qui interviennent chez vous.</p>}
+      {!found && <p className="mt-8 text-muted-foreground">Indiquez une ville ou un code postal pour voir les prestataires qui interviennent chez vous, ou repérez-les directement sur la carte.</p>}
       {found && !found.place && <p role="alert" className="mt-8 text-destructive">Ville introuvable, vérifiez l&apos;orthographe ou saisissez un code postal.</p>}
       {found?.place && found.results === null && <p role="alert" className="mt-8 text-destructive">Recherche momentanément indisponible.</p>}
       {found?.place && found.results?.length === 0 && (
@@ -81,6 +93,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           <Button asChild className="mt-4"><Link href={requestHref}>Déposer une demande</Link></Button>
         </div>
       )}
+
+      {all && <div className="mt-8"><ProvidersMap points={all} center={found?.place} centerLabel={found?.place?.label} /></div>}
 
       {!!found?.results?.length && (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-accent p-4 text-accent-foreground">

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { ProviderMapPoint } from '@frigoconnect/contracts';
 import type { QueryResultRow } from 'pg';
 import { Database } from '../../../shared/infrastructure/database/database.service';
 import { writeOutbox } from '../../../shared/infrastructure/outbox/outbox';
@@ -91,6 +92,25 @@ export class PgMatchingRepository implements MatchingRepository {
       certifications: (certBy.get(r.user_id) ?? []).map((c) => c.type),
       slots: (slotBy.get(r.user_id) ?? []).map((s) => ({ weekday: s.weekday, start: s.start, end: s.end })),
       onTimeOff: offSet.has(r.user_id), availableNow: r.available_now, logoFileId: r.avatar_file_id, lat: r.lat, lng: r.lng,
+    }));
+  }
+
+  // ponytail: plafonné à 2000 repères, sans regroupement. Passer à des grappes (clusters) ou à un chargement par zone visible au-delà.
+  async mapPoints(serviceType: string | undefined, at: Date): Promise<ProviderMapPoint[]> {
+    const rows = await this.db.query(
+      `SELECT p.slug, p.company_name, p.city, p.avg_rating, p.reviews_count, p.emergency_available,
+              round(ST_Y(p.base_location::geometry)::numeric, 2)::float AS lat, round(ST_X(p.base_location::geometry)::numeric, 2)::float AS lng,
+              (p.available_until IS NOT NULL AND p.available_until > $2::timestamptz) AS available_now
+         FROM providers p
+         JOIN users u ON u.id = p.user_id AND u.status = 'active' AND u.deleted_at IS NULL
+        WHERE p.status = 'approved' AND p.base_location IS NOT NULL
+          AND ($1::service_type IS NULL OR p.services @> ARRAY[$1::service_type])
+        ORDER BY p.avg_rating DESC, p.reviews_count DESC LIMIT 2000`,
+      [serviceType ?? null, at],
+    );
+    return rows.map((r) => ({
+      slug: r.slug, companyName: r.company_name, city: r.city, lat: r.lat, lng: r.lng,
+      avgRating: Number(r.avg_rating), reviewsCount: r.reviews_count, emergencyAvailable: r.emergency_available, availableNow: r.available_now,
     }));
   }
 
