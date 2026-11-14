@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { BadgeCheck, ShieldCheck, UserRound } from 'lucide-react';
 import type { RequestContextDto, TrustLevel } from '@frigoconnect/contracts';
 import { Badge } from '@/components/ui/badge';
+import { ClientLocationMap } from '@/components/client-location-map';
 import { api } from '@/lib/api';
 import { eur } from '@/lib/format';
 
@@ -19,6 +20,7 @@ export function RequestContext({ requestId }: { requestId: string }) {
   if (!data) return null;
   const t = TRUST_LABEL[data.trust.level];
   return (
+    <>
     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
       <Badge variant={t.variant}><t.icon className="mr-1 size-3.5" />{t.label}</Badge>
       <span className="text-muted-foreground">
@@ -28,5 +30,7 @@ export function RequestContext({ requestId }: { requestId: string }) {
       </span>
       {data.budgetMaxCents && <Badge variant="warning">Budget max {eur(data.budgetMaxCents)}</Badge>}
     </div>
+    {data.location && <ClientLocationMap location={data.location} />}
+    </>
   );
 }

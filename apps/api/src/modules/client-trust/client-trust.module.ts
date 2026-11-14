@@ -35,7 +35,8 @@ class ClientTrustController {
   @Roles('provider')
   async context(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string): Promise<RequestContextDto> {
     const [r] = await this.db.query(
-      `SELECT r.client_id AS "clientId", r.budget_min_cents AS "budgetMinCents", r.budget_max_cents AS "budgetMaxCents"
+      `SELECT r.client_id AS "clientId", r.budget_min_cents AS "budgetMinCents", r.budget_max_cents AS "budgetMaxCents",
+              round(ST_Y(r.location::geometry)::numeric, 2)::float AS lat, round(ST_X(r.location::geometry)::numeric, 2)::float AS lng
          FROM service_requests r
         WHERE r.id = $1 AND (EXISTS (SELECT 1 FROM request_matches m WHERE m.request_id = r.id AND m.provider_id = $2)
                           OR EXISTS (SELECT 1 FROM quotes q WHERE q.request_id = r.id AND q.provider_id = $2))`,
@@ -43,7 +44,8 @@ class ClientTrustController {
     );
     if (!r) throw new NotFoundError('Demande');
     const { score: _s, tips: _t, ...trust } = await this.trustOf(r.clientId);
-    return { budgetMinCents: r.budgetMinCents, budgetMaxCents: r.budgetMaxCents, trust };
+    // position arrondie (~1 km) : le prestataire situe le chantier sans connaître l'adresse exacte
+    return { budgetMinCents: r.budgetMinCents, budgetMaxCents: r.budgetMaxCents, location: r.lat == null ? null : { lat: r.lat, lng: r.lng }, trust };
   }
 }
 

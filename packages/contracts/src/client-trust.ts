@@ -14,5 +14,7 @@ export interface ClientTrustDto {
 export interface RequestContextDto {
   budgetMinCents: number | null;
   budgetMaxCents: number | null;
+  /** Position approximative (arrondie) du chantier. */
+  location: { lat: number; lng: number } | null;
   trust: Pick<ClientTrustDto, 'level' | 'completedMissions' | 'disputes' | 'memberMonths' | 'verified'>;
 }
