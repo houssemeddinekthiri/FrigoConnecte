@@ -9,6 +9,9 @@ export interface ProviderCandidate extends Candidate {
   services: string[];
   trades: string[];
   logoFileId: string | null;
+  /** Position approximative (arrondie), affichable publiquement. */
+  lat: number;
+  lng: number;
 }
 
 export interface RequestForMatching {

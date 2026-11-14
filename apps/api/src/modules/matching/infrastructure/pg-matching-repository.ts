@@ -47,6 +47,7 @@ export class PgMatchingRepository implements MatchingRepository {
                 p.service_radius_km, p.emergency_available, p.avg_rating, p.reviews_count,
                 p.avg_response_minutes, p.years_experience, p.completed_missions,
                 ST_Distance(p.base_location, ${POINT}) / 1000 AS distance_km,
+                round(ST_Y(p.base_location::geometry)::numeric, 2)::float AS lat, round(ST_X(p.base_location::geometry)::numeric, 2)::float AS lng,
                 u.avatar_file_id, (p.available_until IS NOT NULL AND p.available_until > $6::timestamptz) AS available_now
            FROM providers p
            JOIN users u ON u.id = p.user_id AND u.status = 'active' AND u.deleted_at IS NULL
@@ -89,7 +90,7 @@ export class PgMatchingRepository implements MatchingRepository {
       avgResponseMinutes: r.avg_response_minutes, yearsExperience: r.years_experience, completedMissions: r.completed_missions,
       certifications: (certBy.get(r.user_id) ?? []).map((c) => c.type),
       slots: (slotBy.get(r.user_id) ?? []).map((s) => ({ weekday: s.weekday, start: s.start, end: s.end })),
-      onTimeOff: offSet.has(r.user_id), availableNow: r.available_now, logoFileId: r.avatar_file_id,
+      onTimeOff: offSet.has(r.user_id), availableNow: r.available_now, logoFileId: r.avatar_file_id, lat: r.lat, lng: r.lng,
     }));
   }
 

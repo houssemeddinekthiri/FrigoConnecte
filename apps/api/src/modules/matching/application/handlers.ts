@@ -65,7 +65,7 @@ export class SearchProvidersHandler implements IQueryHandler<SearchProvidersQuer
     return ranked.slice(0, params.limit).map(({ candidate: c, score }) => ({
       providerId: c.providerId, slug: c.slug, companyName: c.companyName, headline: c.headline, city: c.city,
       services: c.services, trades: c.trades, avgRating: c.avgRating, reviewsCount: c.reviewsCount,
-      avgResponseMinutes: c.avgResponseMinutes, distanceKm: Math.round(c.distanceKm * 10) / 10, score,
+      avgResponseMinutes: c.avgResponseMinutes, distanceKm: Math.round(c.distanceKm * 10) / 10, lat: c.lat, lng: c.lng, score,
       emergencyAvailable: c.emergencyAvailable, availableNow: !!c.availableNow, logoFileId: c.logoFileId,
     }));
   }

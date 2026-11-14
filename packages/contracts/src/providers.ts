@@ -34,6 +34,9 @@ export interface ProviderSearchResult {
   reviewsCount: number;
   avgResponseMinutes: number | null;
   distanceKm: number;
+  /** Position approximative (arrondie à ~1 km) pour la carte : jamais l'adresse exacte. */
+  lat: number;
+  lng: number;
   score: number;
   emergencyAvailable: boolean;
   availableNow: boolean;

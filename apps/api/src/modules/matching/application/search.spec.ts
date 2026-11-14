@@ -4,7 +4,7 @@ import { SearchProvidersHandler, SearchProvidersQuery } from './handlers';
 const cand = (id: string, o: Partial<ProviderCandidate> = {}): ProviderCandidate => ({
   providerId: id, slug: id, companyName: id, headline: null, city: null, services: [], trades: [], logoFileId: null,
   distanceKm: 10, radiusKm: 50, emergencyAvailable: false, avgRating: 4, reviewsCount: 10, avgResponseMinutes: 30,
-  yearsExperience: 5, completedMissions: 10, certifications: ['fluid_handling_cat1'], slots: [], onTimeOff: false, ...o,
+  yearsExperience: 5, completedMissions: 10, certifications: ['fluid_handling_cat1'], slots: [], onTimeOff: false, lat: 48.83, lng: 2.54, ...o,
 });
 
 const pool = [

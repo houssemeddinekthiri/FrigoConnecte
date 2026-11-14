@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input, Select } from '@/components/ui/form-controls';
+import { MatchesMap } from '@/components/matches-map';
 import { ProviderAvatar } from '@/components/provider-bits';
 import { duration, SERVICE_LABELS } from '@/lib/format';
 import { LocateButton } from './locate-button';
@@ -88,14 +89,21 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         </div>
       )}
 
+      {!!found?.results?.length && found.place && (
+        <div className="mt-6">
+          <MatchesMap center={found.place} matches={found.results} centerLabel={found.place.label} otherLabel="Prestataire" />
+          <p className="text-xs text-muted-foreground">Cliquez sur un repère pour voir le nom du prestataire, sa note et son profil.</p>
+        </div>
+      )}
+
       <ul className="mt-6 grid gap-3">
-        {found?.results?.map((p) => (
+        {found?.results?.map((p, i) => (
           <li key={p.providerId}>
             <Card className="flex flex-col gap-4 p-4 transition-shadow hover:shadow-md sm:flex-row sm:items-center">
               <div className="flex min-w-0 flex-1 items-start gap-4">
               <ProviderAvatar name={p.companyName} fileId={p.logoFileId} />
               <div className="min-w-0 flex-1">
-                <Link href={`/prestataires/${p.slug}`} className="font-semibold hover:underline">{p.companyName}</Link>
+                <Link href={`/prestataires/${p.slug}`} className="font-semibold hover:underline"><span className="mr-1.5 font-normal text-muted-foreground">{i + 1}</span>{p.companyName}</Link>
                 {p.headline && <p className="truncate text-sm text-muted-foreground">{p.headline}</p>}
                 <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                   {p.reviewsCount > 0
