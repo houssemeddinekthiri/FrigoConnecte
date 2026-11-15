@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Clock, MapPin, Star } from 'lucide-react';
 import Link from 'next/link';
 import { SERVICE_TYPES, type ProviderMapPoint, type ProviderSearchResult } from '@frigoconnect/contracts';
+import { auth } from '@/auth';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -53,6 +54,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const showAll = !found || (!!found.place && found.results?.length === 0);
   const all = showAll ? await allProviders(service && service in SERVICE_LABELS ? service : undefined) : null;
 
+  const roles = (await auth())?.user.roles ?? [];
+  const isClient = !roles.includes('provider') && !roles.includes('super_admin'); // les demandes de devis sont réservées aux clients
   const requestHref = `/client/demandes/nouvelle${service && service in SERVICE_LABELS ? `?service=${service}` : ''}`;
 
   return (
@@ -136,7 +139,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               </div>
               <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-col">
                 <Button asChild variant="outline"><Link href={`/prestataires/${p.slug}`}>Voir le profil</Link></Button>
-                <Button asChild><Link href={`${requestHref}${requestHref.includes('?') ? '&' : '?'}provider=${p.providerId}&name=${encodeURIComponent(p.companyName)}`}>Demander un devis</Link></Button>
+                {isClient ? <Button asChild><Link href={`${requestHref}${requestHref.includes('?') ? '&' : '?'}provider=${p.providerId}&name=${encodeURIComponent(p.companyName)}`}>Demander un devis</Link></Button> : <Button disabled title="Connectez-vous avec un compte client pour demander un devis">Demander un devis</Button>}
               </div>
             </Card>
           </li>

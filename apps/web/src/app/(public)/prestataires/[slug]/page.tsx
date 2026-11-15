@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { MapPin } from 'lucide-react';
+import { auth } from '@/auth';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -41,6 +42,8 @@ const Stat = ({ label, value, hint }: { label: string; value: string; hint: stri
 export default async function ProviderPage({ params }: { params: Promise<{ slug: string }> }) {
   const p = await load((await params).slug);
   if (!p) notFound();
+  const roles = (await auth())?.user.roles ?? [];
+  const isClient = !roles.includes('provider') && !roles.includes('super_admin'); // les demandes de devis sont réservées aux clients
   const photos = p.photoFileIds ?? []; // réponse en cache d'une ancienne version de l'API (déploiement du site avant l'API)
 
   // Données structurées pour Google (étoiles dans les résultats) : uniquement s'il existe de vrais avis publiés
@@ -66,7 +69,7 @@ export default async function ProviderPage({ params }: { params: Promise<{ slug:
             {p.emergencyAvailable && <Badge variant="warning">Urgences acceptées</Badge>}
           </div>
         </div>
-        <Button asChild size="lg" className="w-full sm:w-auto"><Link href={`/client/demandes/nouvelle?provider=${p.providerId}&name=${encodeURIComponent(p.companyName)}`}>Demander un devis</Link></Button>
+        {isClient ? <Button asChild size="lg" className="w-full sm:w-auto"><Link href={`/client/demandes/nouvelle?provider=${p.providerId}&name=${encodeURIComponent(p.companyName)}`}>Demander un devis</Link></Button> : <Button size="lg" disabled title="Connectez-vous avec un compte client pour demander un devis">Demander un devis</Button>}
       </Card>
 
       <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
