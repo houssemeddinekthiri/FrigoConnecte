@@ -125,6 +125,17 @@ export class PgMatchingRepository implements MatchingRepository {
     }));
   }
 
+  async unmatchedOpenRequestIds(limit: number): Promise<string[]> {
+    const rows = await this.db.query(
+      `SELECT r.id FROM service_requests r
+        WHERE r.status = 'open' AND r.created_at > now() - interval '14 days'
+          AND NOT EXISTS (SELECT 1 FROM request_matches m WHERE m.request_id = r.id)
+        ORDER BY r.created_at DESC LIMIT $1`,
+      [limit],
+    );
+    return rows.map((r) => r.id as string);
+  }
+
   async addPreferredMatch(requestId: string, providerId: string): Promise<void> {
     await this.db.tx(async (c) => {
       const { rowCount } = await c.query(

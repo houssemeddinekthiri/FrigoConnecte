@@ -1,4 +1,4 @@
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { EventsHandler, IEventHandler, IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import type { ProviderSearchResult, SearchProvidersInput } from '@frigoconnect/contracts';
 import { IntegrationEvent } from '../../../shared/infrastructure/outbox/outbox';
@@ -10,7 +10,7 @@ const CANDIDATE_POOL = 200;
 
 /** Réagit à la création d'une demande : score les prestataires et enregistre les meilleurs. */
 @EventsHandler(IntegrationEvent)
-export class RunMatchingOnRequestCreated implements IEventHandler<IntegrationEvent> {
+export class RunMatchingOnRequestCreated implements IEventHandler<IntegrationEvent>, OnModuleInit, OnModuleDestroy {
   private readonly log = new Logger(RunMatchingOnRequestCreated.name);
 
   constructor(@Inject(MATCHING_REPOSITORY) private readonly repo: MatchingRepository) {}
@@ -19,17 +19,37 @@ export class RunMatchingOnRequestCreated implements IEventHandler<IntegrationEve
   // Passer à une file BullMQ (retries) quand elle sera introduite (messagerie/paiements).
   async handle(e: IntegrationEvent) {
     if (e.type !== 'service_request.created') return;
+    await this.match(e.payload.requestId as string, typeof e.payload.preferredProviderId === 'string' ? e.payload.preferredProviderId : undefined);
+  }
+
+  private async match(requestId: string, preferredProviderId?: string) {
     try {
-      const req = await this.repo.getRequest(e.payload.requestId as string);
+      const req = await this.repo.getRequest(requestId);
       if (!req || req.status !== 'open') return;
       const at = req.desiredFrom && req.desiredFrom > new Date() ? req.desiredFrom : new Date();
       const candidates = await this.repo.findCandidates(req.location, { serviceType: req.serviceType, trade: req.trade }, at, CANDIDATE_POOL);
       const ranked = rank(candidates, { serviceType: req.serviceType, trade: req.trade, urgency: req.urgency, at }, MAX_MATCHES);
       await this.repo.saveMatches(req.id, ranked);
-      if (typeof e.payload.preferredProviderId === 'string') await this.repo.addPreferredMatch(req.id, e.payload.preferredProviderId);
+      if (preferredProviderId) await this.repo.addPreferredMatch(req.id, preferredProviderId);
       this.log.log(`demande ${req.id}: ${candidates.length} candidats, ${ranked.length} retenus`);
     } catch (err) {
-      this.log.error(`matching échoué pour ${String(e.payload.requestId)}`, err as Error);
+      this.log.error(`matching échoué pour ${requestId}`, err as Error);
+    }
+  }
+
+  // Rattrapage : une demande restée sans prestataire (matching raté, prestataire approuvé après coup) est retentée chaque minute.
+  private timer?: NodeJS.Timeout;
+  onModuleInit() {
+    this.timer = setInterval(() => void this.sweep(), 60_000);
+  }
+  onModuleDestroy() {
+    clearInterval(this.timer);
+  }
+  private async sweep() {
+    try {
+      for (const id of await this.repo.unmatchedOpenRequestIds(20)) await this.match(id);
+    } catch (err) {
+      this.log.error('rattrapage du matching échoué', err as Error);
     }
   }
 }

@@ -50,5 +50,7 @@ export interface MatchingRepository {
   saveMatches(requestId: string, matches: Scored<ProviderCandidate>[]): Promise<void>;
   /** « Re-solliciter » : le prestataire choisi par le client reçoit la demande même hors des 10 meilleurs (s'il est approuvé). */
   addPreferredMatch(requestId: string, providerId: string): Promise<void>;
+  /** Demandes ouvertes (14 jours) sans aucun prestataire : matching raté, ou prestataire approuvé depuis. */
+  unmatchedOpenRequestIds(limit: number): Promise<string[]>;
 }
 export const MATCHING_REPOSITORY = Symbol('MATCHING_REPOSITORY');
